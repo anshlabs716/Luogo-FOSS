@@ -1,226 +1,276 @@
 # Luogo-FOSS
 
-**Privacy-first, native Android location sharing, device finding, and Android Auto.**
+<div align="center">
 
-Luogo-FOSS is an open-source Android application for real-time location sharing, saved places, location history, and privacy-preserving crowdsourced BLE item finding.
+### 🗺️ Privacy-first location sharing & device finding for Android
 
-**Platform scope:** Android phone/tablet + Android Auto.  
-**No Wear OS app. No iOS app. No desktop app.**
+Native **Kotlin** Android app · Android Auto · End-to-end encrypted sharing · Crowdsourced BLE finding · Self-hostable backend
 
-Licensed under the **European Union Public Licence v. 1.2 (EUPL-1.2)**.  
-Original upstream: https://github.com/lukehmcc/luogo
+[![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com/) [![Kotlin](https://img.shields.io/badge/Kotlin-Android-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/) [![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)](https://go.dev/) [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
+
+[![Android Auto](https://img.shields.io/badge/Android%20Auto-supported-3DDC84?logo=androidauto&logoColor=white)](https://developer.android.com/training/cars) [![License: EUPL--1.2](https://img.shields.io/badge/license-EUPL--1.2-blue)](LICENSE)
+
+**No Flutter · No Dart · No iOS · No Wear OS · No mandatory Google account · No ads**
+
+</div>
 
 ---
 
-## Architecture
+## ✨ What is Luogo-FOSS?
+
+Luogo-FOSS is a privacy-first Android application for:
+
+- 📍 **Real-time location sharing**
+- 👥 **Live people & group sharing**
+- 📌 **Saved places & geofencing**
+- 🧭 **Location history & trip playback**
+- 🎧 **Crowdsourced BLE item finding**
+- 🗺️ **Maps, satellite imagery & offline maps**
+- 🚗 **Android Auto**
+- 🔐 **End-to-end encrypted communication**
+- 🏠 **Self-hosted backend support**
+
+**Platform scope:** Android phones/tablets + Android Auto only.
+
+> No Wear OS app. No iOS app. No desktop app.
+
+## 🧱 Architecture
 
 ### Android application
 
 The Android application is being migrated from the original Flutter implementation to a **native Kotlin Android application**.
 
-- Kotlin-first Android codebase
-- Gradle Kotlin DSL
-- Jetpack Compose + Material 3
-- AndroidX / Jetpack
-- Kotlin coroutines and Flow
-- Room for local persistence
-- Native Android location, sensor, BLE, background-service, notification, widget, Quick Settings, and Android Auto APIs
-- Native Android networking and cryptography
-- No Flutter or Dart dependency in the final Android application
-- No Google Play Services requirement for core functionality
-- No mandatory Google account
-- No advertisements or unnecessary analytics
+| Layer | Technology |
+| --- | --- |
+| Language | **Kotlin** |
+| Build | **Gradle Kotlin DSL** |
+| UI | **Jetpack Compose + Material 3** |
+| Architecture | Clean architecture + ViewModel |
+| Async | Kotlin Coroutines + Flow |
+| Database | Room |
+| Location | Native Android location APIs |
+| BLE | Native Android Bluetooth/BLE APIs |
+| Background | Native Android services/workers |
+| Maps | MapLibre / OSM-compatible providers |
+| Android Auto | Native Android Auto APIs |
+| Crypto | Android Keystore + established cryptographic libraries |
+| Backend | **Go** |
 
-The migration is incremental: existing functionality is replaced subsystem-by-subsystem, with builds and tests run throughout the process.
+### 🚫 Not part of the final Android app
 
-### Backend
+- Flutter / Dart
+- Swift / iOS
+- Wear OS
+- React Native / Electron
+- Rust / NDK / C++ unless a genuinely unavoidable native dependency requires it
 
-The existing **Go backend remains Go**. The Kotlin migration applies to the Android application and does not require rewriting the server.
+The goal is a **real native Android application**, not a Flutter application with a Kotlin wrapper.
 
----
+## 📍 Real-Time Location
 
-## Core Systems
-
-### Real-time location
+Designed around multi-source location and sensor fusion:
 
 - GNSS, including dual-frequency positioning where supported
-- Network/Wi-Fi/cellular positioning
+- Network, Wi-Fi, and cellular positioning
 - Wi-Fi RTT where supported
-- BLE/UWB ranging where supported by the device
-- Accelerometer, gyroscope, magnetometer, barometer, and other available sensors
-- Sensor fusion and dead reckoning
+- BLE/UWB ranging where supported
+- Accelerometer, gyroscope, magnetometer, and barometer
+- Sensor fusion and inertial dead reckoning
 - Motion/activity awareness
 - Heading, speed, altitude, and accuracy
-- Significant-location changes and geofencing
-- Background location with battery-aware behavior
+- Significant-location changes
+- Background location
+- Geofencing
 - Stale-fix and impossible-jump detection
 - Mock-location detection
 - Offline location caching
-- Server-side interpolation/anomaly handling where appropriate
-- Target of approximately 2-second meaningful location updates while moving, subject to Android/device/network limitations
+- Battery-aware behavior
+- Target of approximately **2-second meaningful updates while moving**, subject to Android, hardware, and network limitations
 
-### Live people sharing
+## 👥 People & Location Sharing
 
 - Real-time shared locations
 - Groups and invitations
 - Custom names, avatars, and colors
-- Online/offline and last-seen state
-- Current location, accuracy, speed, heading, and battery information
-- Temporary location sharing
+- Online/offline state and last seen
+- Location accuracy, speed, heading, and battery information
+- Temporary sharing
 - Pause/resume sharing
 - Granular Android permissions
 
-### Saved places and history
+## 📌 Places & History
+
+### Saved places
 
 - Home, School, Work, and custom places
-- Configurable geofence radii
+- Configurable geofence radius
 - Arrival/departure detection
-- Daily, weekly, and monthly history
-- Route playback
-- Distance and time-at-place statistics
-- GPX export
-- Local history retention and deletion controls
+- Hysteresis to reduce notification noise
 
-### Privacy-preserving item finding
+### Location history
 
-Luogo-FOSS supports finding personal items such as phones, earbuds, watches, laptops, keys, bags, bikes, and custom items.
+- Daily / weekly / monthly views
+- Route visualization and playback
+- Trip detection
+- Distance traveled
+- Time spent at saved places
+- GPX 1.1 export
+- Local retention and deletion controls
 
-Every item has a human-readable friendly name throughout the UI, such as:
+## 🎧 Privacy-Preserving Item Finding
 
-- `Ansh's Pixel Buds 3`
-- `Ansh's Commuter Bike`
-- `Everyday Keyring`
+Supports personal items such as **phones, earbuds, watches, laptops, keys, bags, bikes, and custom items**.
+
+Every item has a human-readable name throughout the UI, for example:
+
+> `Ansh's Pixel Buds 3`
+
+> `Ansh's Commuter Bike`
+
+> `Everyday Keyring`
 
 Raw BLE identifiers remain internal.
 
-The finding system is designed around:
+### Finding protocol
 
-- Rotating encrypted BLE identifiers
-- Ephemeral identity keys
-- HKDF-SHA256 key derivation
-- Encrypted BLE sightings
-- Offline report queues
+- Rotating BLE identifiers
+- Ephemeral Identity Key (EIK)
+- HKDF-SHA256 derivation
+- Encrypted sightings
+- Offline report queue
 - Replay protection
 - Authenticated item enrollment
-- Abuse/unknown-tracker protection
 - Crowdsourced helper-device reports
 - Owner-side location reporting
+- Unknown-tracker / abuse protection
 
-### Cryptography
+## 🔐 Cryptography & Privacy
 
-The Android security layer separates device authentication, group encryption, and item-finding identities.
+The security architecture separates device authentication, group encryption, and item-finding identities.
 
-Planned/implemented primitives include:
+Cryptographic primitives include:
 
-- Ed25519 signatures
+- Ed25519
 - HKDF-SHA256
 - ChaCha20-Poly1305
 - AES-256-GCM
-- Android Keystore where appropriate
 - Secure random key generation
-- Authenticated encryption and replay protection
+- Android Keystore where appropriate
 
-Cryptographic primitives are not treated as a substitute for secure key storage, nonce management, authentication, or protocol-level protections.
+Security also depends on correct nonce management, key storage, authentication, replay protection, and protocol design—not merely the choice of algorithms.
 
-### Maps and navigation
+### Privacy goals
 
-- MapLibre/OSM-compatible map architecture
-- Standard, dark, terrain/elevation, and satellite map modes
-- Pinch zoom, rotation, tilt, compass, scale, follow mode, and accuracy indicators
-- Offline map downloads and management
+- ❌ No mandatory Google account
+- ❌ No mandatory Google Play Services for core functionality
+- ❌ No advertisements
+- ❌ No unnecessary analytics
+- ✅ Granular permissions
+- ✅ Encryption
+- ✅ Export/delete controls
+- ✅ Self-hostable backend
+- ✅ Tor/Orbot support
+- ✅ SOCKS5/custom proxy support
+
+Hardware- or Android-version-specific capabilities are detected rather than falsely presented as universally available.
+
+## 🗺️ Maps & Navigation
+
+- MapLibre / OSM-compatible architecture
+- Standard, dark, terrain/elevation, and satellite modes
+- Pinch zoom, rotation, tilt, compass, scale, and follow mode
+- Accuracy indicators
+- Offline map regions
 - Configurable map providers with required attribution
 - Routing abstraction
-- Walking, cycling, and driving routing
-- Offline fallback behavior where practical
+- Walking / cycling / driving routing
+- Offline fallback where practical
 
-### Android integration
+## 🚗 Android Integration
 
 - Android Auto
 - Quick Settings tile
 - Home-screen widget
-- Share sheet integration
+- Share sheet
 - Deep links
 - Location and finding notifications
 - Background services where required by Android
-- Android-only implementation; no Wear OS module
 
----
+**Android-only. No Wear OS module.**
 
-## Privacy
+## 🖥️ Backend
 
-Luogo-FOSS is designed to minimize dependence on proprietary Google services.
+The backend remains **Go**. The native Android migration does **not** mean rewriting the server in Kotlin.
 
-- No mandatory Google account
-- No mandatory Google Play Services for core functionality
-- No ads
-- No unnecessary analytics
-- End-to-end encryption for applicable shared data
-- Granular permissions
-- Local data controls
-- Data export and deletion
-- Self-hostable backend
-- Tor/Orbot support
-- SOCKS5/custom proxy support
+~~~text
+┌──────────────────────────────┐
+│       Luogo-FOSS Android     │
+│                              │
+│  Kotlin · Compose · AndroidX │
+│  Room · BLE · Location       │
+│  Maps · Android Auto         │
+└──────────────┬───────────────┘
+               │ encrypted API
+               ▼
+┌──────────────────────────────┐
+│          Go backend          │
+│                              │
+│   Relay · Sharing · Finding  │
+│   Authentication · Sync      │
+└──────────────────────────────┘
+~~~
 
-Capabilities that depend on specific device hardware or Android versions are detected rather than falsely advertised as universally available.
+## 🛠️ Migration Status
 
----
+Luogo-FOSS is undergoing a **Flutter/Dart → native Kotlin Android migration**.
 
-## Project Structure
+1. 🏗️ Native Kotlin Android foundation
+2. 📍 Location engine
+3. 👥 Live people sharing
+4. 📌 Places & history
+5. 🎧 BLE item finding
+6. 🔐 Finding backend integration
+7. 🗺️ Maps, satellite, offline maps & routing
+8. 🚗 Android Auto & Android integrations
+9. 🛡️ Security hardening, diagnostics, testing & release preparation
 
-The intended final architecture is:
+The migration is incremental. Existing functionality is replaced subsystem-by-subsystem rather than blindly performing a giant rewrite.
 
-```
+Each major stage should be compiled, tested, and validated before moving on.
+
+## 📦 Project Structure
+
+The intended final structure is:
+
+~~~text
 Luogo-FOSS/
-├── Android application
+├── Android application/
 │   ├── Kotlin
 │   ├── Gradle Kotlin DSL
-│   ├── Jetpack Compose / Material 3
+│   ├── Jetpack Compose
 │   ├── AndroidX
 │   └── Room
 │
 └── server/
     └── Go backend
-```
+~~~
 
-The original Flutter/Dart implementation is being replaced rather than used as the Android runtime.
+The original Flutter/Dart implementation is being replaced and will not be the Android runtime.
 
----
+## 📜 License
 
-## Development
+Licensed under the **European Union Public Licence v. 1.2 (EUPL-1.2)**.
 
-The migration follows a staged approach:
-
-1. Native Kotlin Android foundation
-2. Location engine
-3. Live people sharing
-4. Saved places and history
-5. BLE item finding
-6. Finding backend integration
-7. Maps, satellite imagery, offline maps, and routing
-8. Android Auto and Android integrations
-9. Security hardening, diagnostics, documentation, testing, and release preparation
-
-Changes should remain small and coherent. The project should be compiled and tested after each major subsystem migration.
-
-Do not remove Git history, licensing information, or required upstream attribution.
-
----
-
-## Status
-
-Luogo-FOSS is actively undergoing the **Flutter/Dart → native Kotlin Android migration**.
-
-The target is a complete native Android application with the Go backend retained separately.
-
-This README describes the intended native architecture and feature set; individual capabilities should not be considered complete until implemented, built, and tested in the Android application.
-
----
-
-## License
-
-Luogo-FOSS is licensed under the **European Union Public Licence v. 1.2 (EUPL-1.2)**.
-
-See [LICENSE](LICENSE) for the complete license text.
+See [LICENSE](LICENSE).
 
 Original upstream project: https://github.com/lukehmcc/luogo
+
+All required upstream attribution and licensing information is preserved.
+
+<div align="center">
+
+### 🔒 Private by design. 🗺️ Built for Android. 🧭 Built to be yours.
+
+**Luogo-FOSS**
+
+</div>
