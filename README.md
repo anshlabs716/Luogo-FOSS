@@ -2,43 +2,43 @@
 
 <div align="center">
 
-### 🗺️ Privacy-first location sharing & device finding for Android
+### Privacy-first location sharing & device finding for Android
 
-Native **Kotlin** Android app · Android Auto · End-to-end encrypted sharing · Crowdsourced BLE finding · Self-hostable backend
+End-to-end encrypted sharing · Crowdsourced BLE finding · Self-hostable backend
 
 [![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com/) [![Kotlin](https://img.shields.io/badge/Kotlin-Android-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/) [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
 
 [![Android Auto](https://img.shields.io/badge/Android%20Auto-supported-3DDC84?logo=androidauto&logoColor=white)](https://developer.android.com/training/cars) [![License: EUPL--1.2](https://img.shields.io/badge/license-EUPL--1.2-blue)](LICENSE)
 
-**No Flutter · No Dart · No iOS · No Wear OS · No mandatory Google account · No ads**
+**No mandatory Google account · No ads**
 
 </div>
 
 ---
 
-## ✨ What is Luogo-FOSS?
+## What is Luogo-FOSS?
 
 Luogo-FOSS is a privacy-first Android application for:
 
 - 📍 **Real-time location sharing**
 - 👥 **Live people & group sharing**
 - 📌 **Saved places & geofencing**
-- 🧭 **Location history & trip playback**
-- 🎧 **Crowdsourced BLE item finding**
+-    **Location history & trip playback**
+-    **Crowdsourced BLE item finding**
 - 🗺️ **Maps, satellite imagery & offline maps**
-- 🚗 **Android Auto**
+-    **Android Auto**
 - 🔐 **End-to-end encrypted communication**
-- 🏠 **Self-hosted backend support**
+-    **Self-hosted backend support**
 
-**Platform scope:** Android phones/tablets + Android Auto only.
+**Supported Platforms:** Android phones/tablets + Android Auto only.
 
-> No Wear OS app. No iOS app. No desktop app.
 
-## 🧱 Architecture
 
-### Android application
+## Architecture
 
-The Android application is being migrated from the original Flutter implementation to a **native Kotlin Android application**.
+### Luogo-FOSS structure
+
+Luogo-FOSS is a fork of the original Luogo, migrated to a **native Kotlin Android application**, instead of the original implementation in Flutter/Dart and Swift.
 
 | Layer | Technology |
 | --- | --- |
@@ -54,7 +54,7 @@ The Android application is being migrated from the original Flutter implementati
 | Maps | MapLibre / OSM-compatible providers |
 | Android Auto | Native Android Auto APIs |
 | Crypto | Android Keystore + established cryptographic libraries |
-| Backend | **Go** |
+| Backend | **Kotlin** |
 
 ### 🚫 Not part of the final Android app
 
@@ -66,7 +66,7 @@ The Android application is being migrated from the original Flutter implementati
 
 The goal is a **real native Android application**, not a Flutter application with a Kotlin wrapper.
 
-## 📍 Real-Time Location
+## Real-Time Location
 
 Designed around multi-source location and sensor fusion:
 
@@ -92,13 +92,13 @@ Designed around multi-source location and sensor fusion:
 - Real-time shared locations
 - Groups and invitations
 - Custom names, avatars, and colors
-- Online/offline state and last seen
+- Status (Online, Offline, Last Seen)
 - Location accuracy, speed, heading, and battery information
 - Temporary sharing
 - Pause/resume sharing
 - Granular Android permissions
 
-## 📌 Places & History
+## Places & History
 
 ### Saved places
 
@@ -117,7 +117,7 @@ Designed around multi-source location and sensor fusion:
 - GPX 1.1 export
 - Local retention and deletion controls
 
-## 🎧 Privacy-Preserving Item Finding
+## Privacy-Preserving Item Finding
 
 Supports personal items such as **phones, earbuds, watches, laptops, keys, bags, bikes, and custom items**.
 
@@ -198,9 +198,9 @@ Hardware- or Android-version-specific capabilities are detected rather than fals
 
 **Android-only. No Wear OS module.**
 
-## 🖥️ Backend
+## Backend
 
-The backend remains **Go**. The native Android migration does **not** mean rewriting the server in Kotlin.
+The backend is also written in Kotlin
 
 ~~~text
 ┌──────────────────────────────┐
@@ -213,7 +213,7 @@ The backend remains **Go**. The native Android migration does **not** mean rewri
                │ encrypted API
                ▼
 ┌──────────────────────────────┐
-│          Go backend          │
+│        Kotlin Backend        │
 │                              │
 │   Relay · Sharing · Finding  │
 │   Authentication · Sync      │
@@ -252,7 +252,7 @@ Luogo-FOSS/
 │   └── Room
 │
 └── server/
-    └── Go backend
+    └── Kotlin Backend
 ~~~
 
 The original Flutter/Dart implementation is being replaced and will not be the Android runtime.
@@ -269,7 +269,7 @@ All required upstream attribution and licensing information is preserved.
 
 <div align="center">
 
-### 🔒 Private by design. 🗺️ Built for Android. 🧭 Built to be yours.
+### Private by design. Built for Android. Built to be yours.
 
 **Luogo-FOSS**
 
