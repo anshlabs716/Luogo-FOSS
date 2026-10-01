@@ -1,12 +1,10 @@
-FROM golang:1.26-alpine AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/luogo-relay .
+RUN apk add --no-cache kotlin
+COPY RelayServer.kt .
+RUN kotlinc RelayServer.kt -include-runtime -d luogo-relay.jar
 
-FROM alpine:3.22
-RUN apk add --no-cache ca-certificates
-COPY --from=build /out/luogo-relay /usr/local/bin/luogo-relay
+FROM eclipse-temurin:21-jre-alpine
+COPY --from=build /src/luogo-relay.jar /usr/local/bin/luogo-relay.jar
 EXPOSE 8040
-ENTRYPOINT ["/usr/local/bin/luogo-relay"]
+ENTRYPOINT ["java", "-jar", "/usr/local/bin/luogo-relay.jar"]
