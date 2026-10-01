@@ -6,7 +6,7 @@
 
 Native **Kotlin** Android app · Android Auto · End-to-end encrypted sharing · Crowdsourced BLE finding · Self-hostable backend
 
-[![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com/) [![Kotlin](https://img.shields.io/badge/Kotlin-Android-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/) [![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)](https://go.dev/) [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
+[![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](https://developer.android.com/) [![Kotlin](https://img.shields.io/badge/Kotlin-Android-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/) [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
 
 [![Android Auto](https://img.shields.io/badge/Android%20Auto-supported-3DDC84?logo=androidauto&logoColor=white)](https://developer.android.com/training/cars) [![License: EUPL--1.2](https://img.shields.io/badge/license-EUPL--1.2-blue)](LICENSE)
 
