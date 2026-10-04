@@ -77,6 +77,7 @@ import app.luogo.app.domain.model.OfflineRegionStatus
 import app.luogo.app.domain.model.PeerLocationState
 import app.luogo.app.domain.model.RegisteredItem
 import app.luogo.app.domain.model.RoutingMode
+import app.luogo.app.ui.components.DetailRow
 import app.luogo.app.ui.components.LocationMap
 import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
@@ -971,23 +972,6 @@ private fun ItemSheet(
 
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = onDismiss) { Text("Close") }
-    }
-}
-
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(110.dp)
-        )
-        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

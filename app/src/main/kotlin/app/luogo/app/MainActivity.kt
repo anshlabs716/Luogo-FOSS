@@ -3,13 +3,13 @@ package app.luogo.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,9 +22,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
@@ -33,8 +36,8 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -45,7 +48,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.luogo.app.ui.screens.HistoryScreen
 import app.luogo.app.ui.screens.ItemsScreen
@@ -63,6 +66,7 @@ import app.luogo.app.ui.screens.MapScreen
 import app.luogo.app.ui.screens.PeopleScreen
 import app.luogo.app.ui.screens.PlacesScreen
 import app.luogo.app.ui.screens.SettingsScreen
+import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.theme.LuogoTheme
 import app.luogo.app.ui.viewmodel.LuogoViewModel
 import app.luogo.app.ui.viewmodel.PrimaryTab
@@ -100,7 +104,7 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_SEND -> {
                 val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim() ?: return
                 if (sharedText.startsWith("luogo-invite-key:")) {
-                    repository.appendLog("Received shared group invite payload via Android Share Sheet")
+                    repository.appendLog("Received a group invite through the Android share sheet")
                 }
             }
             Intent.ACTION_VIEW -> {
@@ -140,50 +144,59 @@ fun LuogoMainApp(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val toastMsg by viewModel.statusToast.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showPermissionExplanation by remember { mutableStateOf(false) }
 
-    var showPermissionExplanationModal by remember { mutableStateOf(false) }
-
-    val multiPermissionLauncher = rememberLauncherForActivityResult(
+    // Permission requests are grouped by the feature that needs them, so the app never asks
+    // for everything at once on first launch.
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         ) {
             viewModel.repository.hardwareLocationManager.startLiveTracking()
+        } else {
+            viewModel.postToast("Location permission denied. The map needs it to show where you are.")
         }
     }
 
-    val requestLocationAndActivityPermissions = {
-        val perms = buildList {
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants.values.any { it }) {
+            viewModel.postToast("Bluetooth permission granted")
+        } else {
+            viewModel.postToast("Bluetooth permission denied. Item finding needs it.")
+        }
+    }
+
+    val requestLocationPermissions = {
+        val permissions = buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
             add(Manifest.permission.ACCESS_COARSE_LOCATION)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                add(Manifest.permission.ACTIVITY_RECOGNITION)
-            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
-        }.toTypedArray()
-        multiPermissionLauncher.launch(perms)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                add(Manifest.permission.ACTIVITY_RECOGNITION)
+            }
+        }
+        locationPermissionLauncher.launch(permissions.toTypedArray())
     }
 
-    val requestBlePermissions = {
-        val perms = buildList {
+    val requestBluetoothPermissions = {
+        val permissions = buildList {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 add(Manifest.permission.BLUETOOTH_SCAN)
                 add(Manifest.permission.BLUETOOTH_CONNECT)
-                add(Manifest.permission.BLUETOOTH_ADVERTISE)
-            } else {
-                add(Manifest.permission.ACCESS_FINE_LOCATION)
             }
-        }.toTypedArray()
-        multiPermissionLauncher.launch(perms)
+        }
+        bluetoothPermissionLauncher.launch(permissions.toTypedArray())
     }
 
-    DisposableEffect(Unit) {
+    // Only ask once the user has opened the map, which is the feature that needs location.
+    LaunchedEffect(Unit) {
         viewModel.repository.hardwareLocationManager.startLiveTracking()
-        viewModel.repository.relayClient.startLiveWebSocket()
-        onDispose { }
     }
 
     LaunchedEffect(toastMsg) {
@@ -193,29 +206,20 @@ fun LuogoMainApp(
         }
     }
 
-    BackHandler(enabled = selectedTab != PrimaryTab.MAP) {
-        viewModel.selectTab(PrimaryTab.MAP)
-    }
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isExpandedScreen = maxWidth >= 600.dp
+        val expanded = maxWidth >= EXPANDED_WIDTH_BREAKPOINT
 
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             bottomBar = {
-                if (!isExpandedScreen) {
+                if (!expanded) {
                     NavigationBar(modifier = Modifier.testTag("bottom_navigation_bar")) {
                         PrimaryTab.entries.forEach { tab ->
                             NavigationBarItem(
                                 selected = selectedTab == tab,
                                 onClick = { viewModel.selectTab(tab) },
-                                icon = {
-                                    Icon(
-                                        imageVector = tab.icon(),
-                                        contentDescription = tab.label
-                                    )
-                                },
+                                icon = { Icon(tab.icon(), contentDescription = null) },
                                 label = { Text(tab.label) },
                                 modifier = Modifier.testTag("nav_tab_${tab.route}")
                             )
@@ -229,7 +233,7 @@ fun LuogoMainApp(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                if (isExpandedScreen) {
+                if (expanded) {
                     NavigationRail(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -239,12 +243,7 @@ fun LuogoMainApp(
                             NavigationRailItem(
                                 selected = selectedTab == tab,
                                 onClick = { viewModel.selectTab(tab) },
-                                icon = {
-                                    Icon(
-                                        imageVector = tab.icon(),
-                                        contentDescription = tab.label
-                                    )
-                                },
+                                icon = { Icon(tab.icon(), contentDescription = null) },
                                 label = { Text(tab.label) },
                                 modifier = Modifier.testTag("nav_rail_${tab.route}")
                             )
@@ -252,16 +251,20 @@ fun LuogoMainApp(
                     }
                 }
 
-                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
                     when (selectedTab) {
                         PrimaryTab.MAP -> MapScreen(
                             viewModel = viewModel,
-                            onRequestLocationPermission = requestLocationAndActivityPermissions
+                            onRequestLocationPermission = requestLocationPermissions
                         )
                         PrimaryTab.PEOPLE -> PeopleScreen(viewModel = viewModel)
                         PrimaryTab.ITEMS -> ItemsScreen(
                             viewModel = viewModel,
-                            onRequestBlePermissions = requestBlePermissions
+                            onRequestBlePermissions = requestBluetoothPermissions
                         )
                         PrimaryTab.HISTORY -> HistoryScreen(viewModel = viewModel)
                         PrimaryTab.PLACES -> PlacesScreen(viewModel = viewModel)
@@ -269,7 +272,7 @@ fun LuogoMainApp(
                             viewModel = viewModel,
                             isBatteryExempt = isBatteryOptimizationExempt(),
                             onRequestBatteryExemption = onRequestBatteryOptimizationExemption,
-                            onRequestPermissions = { showPermissionExplanationModal = true }
+                            onRequestPermissions = { showPermissionExplanation = true }
                         )
                     }
                 }
@@ -277,38 +280,88 @@ fun LuogoMainApp(
         }
     }
 
-    if (showPermissionExplanationModal) {
-        AlertDialog(
-            onDismissRequest = { showPermissionExplanationModal = false },
-            title = { Text("Why Luogo-FOSS Requests Permissions") },
-            text = {
-                Column {
-                    Text("• Precise & Background Location: Required to fuse GNSS + Wi-Fi + Inertial sensors for ~2-second moving location updates and saved-place geofencing.")
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("• Bluetooth / Nearby Devices: Required to detect and ring your personal items (e.g. Pixel Buds 3) and scan for unknown trackers.")
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("• Activity Recognition: Adapts tracking frequency between moving (~2s) and stationary states to save battery.")
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("• Notifications: Displays persistent live-sharing status, place arrival/departure alerts, and item detections.")
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showPermissionExplanationModal = false
-                        requestLocationAndActivityPermissions()
-                        requestBlePermissions()
-                    }
-                ) {
-                    Text("Grant Permissions")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPermissionExplanationModal = false }) {
-                    Text("Close")
-                }
+    if (showPermissionExplanation) {
+        PermissionExplanationDialog(
+            onDismiss = { showPermissionExplanation = false },
+            onGrant = {
+                showPermissionExplanation = false
+                requestLocationPermissions()
+                requestBluetoothPermissions()
             }
         )
+    }
+}
+
+private val EXPANDED_WIDTH_BREAKPOINT = 600.dp
+
+/**
+ * Explains what each permission is for before the system dialog appears.
+ *
+ * Requesting a permission without a stated reason is how apps train people to tap "Don't
+ * allow", so the reason comes first.
+ */
+@Composable
+private fun PermissionExplanationDialog(
+    onDismiss: () -> Unit,
+    onGrant: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Why Luogo-FOSS needs these permissions") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                PermissionReason(
+                    title = "Precise location",
+                    body = "Fuses GNSS, Wi-Fi and motion sensors for live position while moving, " +
+                        "and runs saved-place arrival and departure alerts."
+                )
+                PermissionReason(
+                    title = "Background location",
+                    body = "Lets sharing and geofencing keep working when the app is closed. " +
+                        "Android shows a persistent notification while this is active."
+                )
+                PermissionReason(
+                    title = "Notifications",
+                    body = "Shows sharing status, arrival and departure alerts, and item detections."
+                )
+                PermissionReason(
+                    title = "Nearby devices",
+                    body = "Needed to detect your own items advertising a rotating identifier and to " +
+                        "flag unknown trackers following you. No location is attached to another " +
+                        "person's device."
+                )
+                PermissionReason(
+                    title = "Physical activity",
+                    body = "Tells the app whether you are walking, cycling or driving so tracking " +
+                        "can back off when you are stationary."
+                )
+                Spacer(modifier = Modifier.height(LuogoSpacing.small))
+                Text(
+                    text = "Everything is stored on this device unless you turn sharing on. " +
+                        "There are no ads and no analytics.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onGrant) { Text("Continue") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Not now") }
+        }
+    )
+}
+
+@Composable
+private fun PermissionReason(title: String, body: String) {
+    Column(modifier = Modifier.padding(bottom = LuogoSpacing.medium)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(text = body, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
