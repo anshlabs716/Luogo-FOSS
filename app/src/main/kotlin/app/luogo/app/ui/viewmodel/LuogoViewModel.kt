@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import app.luogo.app.data.location.LocationFusionEngine
 import app.luogo.app.data.network.RelayClient
 import app.luogo.app.data.repository.LuogoRepository
 import app.luogo.app.domain.model.CrowdsourcedSightingReport
@@ -13,7 +12,6 @@ import app.luogo.app.domain.model.FusedLocationFix
 import app.luogo.app.domain.model.GroupCategory
 import app.luogo.app.domain.model.ItemType
 import app.luogo.app.domain.model.LocationHistoryPoint
-import app.luogo.app.domain.model.LocationSourceType
 import app.luogo.app.domain.model.MapStyleOption
 import app.luogo.app.domain.model.NetworkConfig
 import app.luogo.app.domain.model.OfflineMapRegion
@@ -27,14 +25,12 @@ import app.luogo.app.domain.model.SavedPlace
 import app.luogo.app.domain.model.TripSummary
 import app.luogo.app.domain.model.UnknownTrackerAlert
 import app.luogo.app.domain.model.UserProfile
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -82,11 +78,13 @@ class LuogoViewModel(val repository: LuogoRepository) : ViewModel() {
     val sightingReports: StateFlow<List<CrowdsourcedSightingReport>> = repository.sightingReportsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // Map camera & filter state
-    private val _cameraCenter = MutableStateFlow(37.7749 to -122.4194)
+    // Map camera & filter state.
+    // Starts on a world view rather than a hardcoded city: before the first real fix arrives
+    // there is no honest position to centre on, and pretending otherwise would be a lie.
+    private val _cameraCenter = MutableStateFlow(0.0 to 0.0)
     val cameraCenter: StateFlow<Pair<Double, Double>> = _cameraCenter.asStateFlow()
 
-    private val _cameraZoom = MutableStateFlow(14.5f)
+    private val _cameraZoom = MutableStateFlow(2.0f)
     val cameraZoom: StateFlow<Float> = _cameraZoom.asStateFlow()
 
     private val _cameraBearing = MutableStateFlow(0f)
@@ -148,33 +146,9 @@ class LuogoViewModel(val repository: LuogoRepository) : ViewModel() {
                 }
             }
         }
-        // Keep ~2-second moving location & live peer motion active for fluid map testing & operation
-        viewModelScope.launch {
-            while (isActive) {
-                delay(LocationFusionEngine.MOVING_TARGET_INTERVAL_MS)
-                val current = fusedLocation.value
-                if (current != null && userProfile.value.sharingEnabled) {
-                    // Refresh timestamp if hardware sensor is idle in container so age & 2s fusion loop remain responsive
-                    val now = System.currentTimeMillis()
-                    if (now - current.timestampMs >= 2_000L) {
-                        repository.hardwareLocationManager.ingestManualOrFallbackFix(
-                            LocationFusionEngine.RawPositionMeasurement(
-                                latitude = current.latitude + 0.000015,
-                                longitude = current.longitude + 0.000012,
-                                timestampMs = now,
-                                horizontalAccuracyMeters = current.horizontalAccuracyMeters,
-                                altitudeMeters = current.altitudeMeters,
-                                verticalAccuracyMeters = current.verticalAccuracyMeters,
-                                speedMps = current.speedMps.coerceAtLeast(1.25f),
-                                bearingDegrees = (current.bearingDegrees + 2f) % 360f,
-                                sourceType = LocationSourceType.GNSS_DUAL_FREQ,
-                                isMock = false
-                            )
-                        )
-                    }
-                }
-            }
-        }
+        // Note: the camera follows real fixes only. Nothing in this ViewModel fabricates,
+        // nudges or extrapolates a position to make the map look alive. A stale fix is shown
+        // as stale.
     }
 
     fun selectTab(tab: PrimaryTab) {
