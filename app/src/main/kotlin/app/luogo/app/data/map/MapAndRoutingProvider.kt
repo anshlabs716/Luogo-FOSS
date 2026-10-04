@@ -37,6 +37,17 @@ class MapAndRoutingProvider(context: Context) {
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
+        // OpenStreetMap's tile usage policy requires a User-Agent identifying the
+        // application plus a contact point. OkHttp's default ("okhttp/4.12.0") is refused:
+        // the server answers HTTP 200 with a placeholder PNG reading "Access blocked",
+        // which a naive client caches and then draws as though it were cartography.
+        .addInterceptor { chain ->
+            chain.proceed(
+                chain.request().newBuilder()
+                    .header("User-Agent", USER_AGENT)
+                    .build()
+            )
+        }
         .build()
 
     private val memoryCache = object : LinkedHashMap<String, Bitmap>(
@@ -84,12 +95,7 @@ class MapAndRoutingProvider(context: Context) {
         }
 
         val url = tileUrl(style, zoom, x, y, customSatelliteUrl) ?: return@withContext null
-        val bytes = runCatching {
-            http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                response.body?.bytes()
-            }
-        }.getOrNull() ?: return@withContext null
+        val bytes = fetchTileBytes(url) ?: return@withContext null
 
         runCatching { disk.writeBytes(bytes) }
         decode(bytes, key)
@@ -180,11 +186,7 @@ class MapAndRoutingProvider(context: Context) {
             if (!target.exists()) {
                 val url = tileUrlForStyleId(region.styleId, zoom, x, y, customSatelliteUrl)
                 if (url != null) {
-                    val body = runCatching {
-                        http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                            if (response.isSuccessful) response.body?.bytes() else null
-                        }
-                    }.getOrNull()
+                    val body = fetchTileBytes(url)
                     if (body != null) {
                         runCatching { target.writeBytes(body) }
                         bytes += body.size
@@ -357,7 +359,53 @@ class MapAndRoutingProvider(context: Context) {
         return "$zoom-$digest.png"
     }
 
+    /**
+     * Downloads tile bytes, refusing anything the server marked as blocked or that is not a
+     * real image.
+     *
+     * OpenStreetMap answers a policy violation with HTTP 200, `content-type: image/png` and
+     * an `x-blocked` header, so status code and content type alone cannot tell a real tile
+     * apart from the placeholder. Caching that placeholder would leave the user staring at a
+     * wall of warning images for the whole cache lifetime.
+     */
+    private fun fetchTileBytes(url: String): ByteArray? = runCatching {
+        http.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            if (!response.isSuccessful) return@use null
+            if (response.header(HEADER_BLOCKED) != null) return@use null
+            val type = response.header("Content-Type").orEmpty()
+            if (!type.startsWith("image/")) return@use null
+            val bytes = response.body?.bytes() ?: return@use null
+            if (looksLikeImage(bytes)) bytes else null
+        }
+    }.getOrNull()
+
+    /** Magic-number check so an error graphic is never mistaken for a tile. */
+    private fun looksLikeImage(bytes: ByteArray): Boolean {
+        if (bytes.size < MIN_PLAUSIBLE_TILE_BYTES) return false
+        val isPng = bytes.size > 8 &&
+            bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() &&
+            bytes[2] == 'N'.code.toByte() && bytes[3] == 'G'.code.toByte()
+        val isJpeg = bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()
+        val isWebp = bytes.size > 12 &&
+            bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
+            bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte()
+        return isPng || isJpeg || isWebp
+    }
+
     companion object {
+        /**
+         * Identifies the application and gives a contact point, as the OSM tile usage policy
+         * requires. Changing this to something anonymous will get tiles refused again.
+         */
+        const val USER_AGENT =
+            "Luogo-FOSS/1.0.0 (Android; https://github.com/anshlabs716/Luogo-FOSS)"
+
+        /** Server-set header marking a request as refused by the tile usage policy. */
+        private const val HEADER_BLOCKED = "x-blocked"
+
+        /** Below this a payload is a placeholder or error graphic, not a tile. */
+        private const val MIN_PLAUSIBLE_TILE_BYTES = 512
+
         const val MIN_ZOOM = 3
         const val MAX_ZOOM = 18
         private const val MEMORY_CACHE_ENTRIES = 220

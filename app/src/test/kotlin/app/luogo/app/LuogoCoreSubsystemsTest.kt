@@ -138,7 +138,7 @@ class LuogoCoreSubsystemsTest {
 
         val item = RegisteredItem(
             id = "item-1",
-            friendlyName = "Ansh's Pixel Buds 3",
+            friendlyName = "Pixel Buds 3",
             itemType = ItemType.EARBUDS,
             ownerId = "owner-1",
             createdAtMs = now - 3_600_000L,
@@ -164,7 +164,7 @@ class LuogoCoreSubsystemsTest {
 
         val groupId = "grp-test"
         val groupKey = crypto.getOrCreateGroupKey(groupId)
-        val cleartext = """{"coordinates":[37.7749,-122.4194],"name":"Ansh"}""".toByteArray(Charsets.UTF_8)
+        val cleartext = """{"coordinates":[37.7749,-122.4194],"name":"Alex"}""".toByteArray(Charsets.UTF_8)
         val ciphertext = crypto.encryptForGroup(groupId, cleartext)
         val decrypted = crypto.decryptForGroup(groupId, ciphertext)
         assertNotNull(decrypted)
@@ -270,7 +270,7 @@ class LuogoCoreSubsystemsTest {
         // Move inside geofence -> ARRIVED
         val (placesAfterEnter, enterEvents) = engine.evaluateGeofences(
             places = listOf(home),
-            subjectName = "Ansh",
+            subjectName = "Alex",
             latitude = 37.7749,
             longitude = -122.4194,
             accuracyMeters = 6f
@@ -282,7 +282,7 @@ class LuogoCoreSubsystemsTest {
         // Move far outside geofence -> DEPARTED
         val (placesAfterExit, exitEvents) = engine.evaluateGeofences(
             places = placesAfterEnter,
-            subjectName = "Ansh",
+            subjectName = "Alex",
             latitude = 37.7850,
             longitude = -122.4194,
             accuracyMeters = 6f
@@ -293,8 +293,8 @@ class LuogoCoreSubsystemsTest {
 
         // History distance & GPX export
         val pts = listOf(
-            LocationHistoryPoint(1, "me", "Ansh", false, 37.7749, -122.4194, 5f, 10.0, 1.5f, 0f, ActivityState.WALKING, "GNSS", 1000L, "t1"),
-            LocationHistoryPoint(2, "me", "Ansh", false, 37.7769, -122.4194, 5f, 12.0, 1.5f, 0f, ActivityState.WALKING, "GNSS", 61000L, "t1")
+            LocationHistoryPoint(1, "me", "Alex", false, 37.7749, -122.4194, 5f, 10.0, 1.5f, 0f, ActivityState.WALKING, "GNSS", 1000L, "t1"),
+            LocationHistoryPoint(2, "me", "Alex", false, 37.7769, -122.4194, 5f, 12.0, 1.5f, 0f, ActivityState.WALKING, "GNSS", 61000L, "t1")
         )
         val dist = engine.calculateTotalDistanceMeters(pts)
         assertTrue(dist > 200.0)

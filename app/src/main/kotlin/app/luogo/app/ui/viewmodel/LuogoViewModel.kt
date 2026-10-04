@@ -179,6 +179,10 @@ class LuogoViewModel(val repository: LuogoRepository) : ViewModel() {
         _cameraBearing.value = ((bearing % 360f) + 360f) % 360f
     }
 
+    fun setFollowMyLocation(follow: Boolean) {
+        _followMyLocation.value = follow
+    }
+
     fun recenterOnMe() {
         _followMyLocation.value = true
         fusedLocation.value?.let {

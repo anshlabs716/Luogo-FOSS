@@ -266,14 +266,14 @@ fun ItemsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Give your item a friendly human-readable name (e.g. \"Ansh's Pixel Buds 3\"). " +
+                        "Give your item a friendly human-readable name, for example \"Pixel Buds 3\". " +
                             "A 256-bit Ephemeral Identity Key (EIK) will be generated locally.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     OutlinedTextField(
                         value = friendlyName,
                         onValueChange = { friendlyName = it },
-                        label = { Text("Friendly Name (e.g. Ansh's Pixel Buds 3)") },
+                        label = { Text("Friendly name") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()

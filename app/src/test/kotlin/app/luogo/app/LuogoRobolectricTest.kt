@@ -44,9 +44,9 @@ class LuogoRobolectricTest {
         val dao = db.luogoDao()
         val item = RegisteredItemEntity(
             id = "item-buds-3",
-            friendlyName = "Ansh's Pixel Buds 3",
+            friendlyName = "Pixel Buds 3",
             itemType = ItemType.EARBUDS.name,
-            ownerId = "user-ansh",
+            ownerId = "user-alex",
             createdAtMs = 1_700_000_000_000L,
             ephemeralIdentitySeedBase64 = "c2VlZA",
             currentRotatingBleIdHex = "0102030405060708090a0b0c0d0e0f10",
@@ -67,7 +67,7 @@ class LuogoRobolectricTest {
 
         val allItems = dao.getRegisteredItems()
         assertEquals(1, allItems.size)
-        assertEquals("Ansh's Pixel Buds 3", allItems.first().friendlyName)
+        assertEquals("Pixel Buds 3", allItems.first().friendlyName)
         assertTrue(allItems.first().batteryPercent == 68)
     }
 }

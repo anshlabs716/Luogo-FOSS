@@ -19,6 +19,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_RELAY_URL", "\"https://relay.luogo.app\"")
         buildConfigField("int", "PROTOCOL_VERSION", "1")
+
+        ndk {
+            // MapLibre's native renderer ships a .so per ABI. The x86 and x86_64 slices
+            // together were 25 MB of the 51 MB release APK and are only ever used by
+            // emulators. Every physical Android device is arm, so restricting to the two
+            // arm ABIs roughly halves the download without excluding real hardware.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     signingConfigs {
@@ -117,6 +125,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.bouncycastle)
     implementation(libs.zxing.core)
+    implementation(libs.maplibre.android.sdk)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

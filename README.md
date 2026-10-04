@@ -123,9 +123,9 @@ Supports personal items such as **phones, earbuds, watches, laptops, keys, bags,
 
 Every item has a human-readable name throughout the UI, for example:
 
-> `Ansh's Pixel Buds 3`
+> `Pixel Buds 3`
 
-> `Ansh's Commuter Bike`
+> `Commuter Bike`
 
 > `Everyday Keyring`
 
