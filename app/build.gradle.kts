@@ -31,6 +31,18 @@ android {
                 keyPassword = "android"
             }
         }
+        // Release signing reads the key from properties that are never committed.
+        // Populate ~/.gradle/gradle.properties or pass -P flags:
+        //   LUOGO_STORE_FILE, LUOGO_STORE_PASSWORD, LUOGO_KEY_ALIAS, LUOGO_KEY_PASSWORD
+        create("releaseConfig") {
+            val storePath = providers.gradleProperty("LUOGO_STORE_FILE").orNull
+            if (storePath != null && file(storePath).exists()) {
+                storeFile = file(storePath)
+                storePassword = providers.gradleProperty("LUOGO_STORE_PASSWORD").orNull
+                keyAlias = providers.gradleProperty("LUOGO_KEY_ALIAS").orNull
+                keyPassword = providers.gradleProperty("LUOGO_KEY_PASSWORD").orNull
+            }
+        }
     }
 
     buildTypes {
@@ -41,11 +53,19 @@ android {
             }
         }
         release {
+            // R8 stays fully enabled. Nothing is disabled to save bytes; only genuinely
+            // unused code and resources are removed.
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Only sign when a real key was supplied. Otherwise the build still produces an
+            // unsigned APK, which is the correct outcome rather than a debug-signed release.
+            signingConfigs.getByName("releaseConfig").storeFile?.let {
+                signingConfig = signingConfigs.getByName("releaseConfig")
+            }
         }
     }
 
