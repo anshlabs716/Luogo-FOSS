@@ -1,6 +1,0 @@
-{
-  "name": "Luogo-FOSS",
-  "description": "Privacy-first end-to-end encrypted real-time location sharing and crowdsourced BLE item finding network for Android and Android Auto.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
