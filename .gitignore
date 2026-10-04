@@ -45,7 +45,33 @@ app.*.map.json
 /android/app/release
 /android/app/.cxx
 
-data
+# Anchored to the repo root. A bare "data" line also matched
+# app/src/main/kotlin/app/luogo/app/data/, which would have silently excluded the entire
+# application data layer from version control.
+/data
 TODO.md
 opencode.json
 android/build/
+
+# Gradle / Kotlin build state. Machine-local and large; never belongs in the repo.
+.gradle/
+.kotlin/
+**/build/
+captures/
+.cxx/
+
+# Local machine configuration
+local.properties
+
+# Release signing material — never commit these
+keystore.jks
+*.jks
+*.keystore
+
+# Local release artefacts
+/build.log
+/sign.log
+/app.apk
+/app.sha256
+*.apk
+!app/src/main/assets/*.apk
