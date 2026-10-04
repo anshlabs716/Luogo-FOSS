@@ -129,6 +129,8 @@ Every item has a human-readable name throughout the UI, for example:
 
 > `Everyday Keyring`
 
+> `shozan's samsung watch 4`
+
 Raw BLE identifiers remain internal.
 
 ### Finding protocol
