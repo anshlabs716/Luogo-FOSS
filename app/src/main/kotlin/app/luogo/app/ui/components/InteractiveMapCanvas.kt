@@ -144,6 +144,13 @@ fun InteractiveMapCanvas(
                     val bmp = fetchTile(mapStyle, intZoom, tx, ty)
                     if (bmp != null) {
                         loadedTiles[key] = bmp
+                        // A 256x256 ARGB bitmap is ~256 KB, so an unbounded cache is a
+                        // guaranteed out-of-memory. Evict in insertion order, which the
+                        // map's key order approximates well enough for a view cache.
+                        while (loadedTiles.size > MAX_CACHED_TILES) {
+                            val oldest = loadedTiles.keys.firstOrNull() ?: break
+                            loadedTiles.remove(oldest)
+                        }
                     }
                 }
             }
@@ -230,7 +237,7 @@ fun InteractiveMapCanvas(
         val h = size.height
         val nowMs = frameClockMs
 
-        // 1. Style-specific base background & vector cartography grid
+        // 1. Style-specific base background. Only a flat backdrop: never a synthesised map.
         val bgColor = when (mapStyle) {
             MapStyleOption.STANDARD_OSM -> Color(0xFFE8ECEF)
             MapStyleOption.PROTOMAPS_DARK -> Color(0xFF11191D)
@@ -238,6 +245,11 @@ fun InteractiveMapCanvas(
             MapStyleOption.SATELLITE_IMAGERY -> Color(0xFF0B1E26)
         }
         drawRect(bgColor)
+
+        val unavailableTileColor = when (mapStyle) {
+            MapStyleOption.PROTOMAPS_DARK -> Color(0xFF1B262B)
+            else -> Color(0xFFDDE3E6)
+        }
 
         val tileZoom = zoom.toInt().coerceIn(3, 18)
         val scaleFraction = 2.0.pow((zoom - tileZoom).toDouble()).toFloat()
@@ -262,38 +274,17 @@ fun InteractiveMapCanvas(
                         dstSize = IntSize(tileSizePx.toInt() + 2, tileSizePx.toInt() + 2)
                     )
                 } else {
-                    // Procedural cartography / satellite / topo fallback tile rendering
-                    val gridStrokeColor = when (mapStyle) {
-                        MapStyleOption.STANDARD_OSM -> Color(0xFFD0D9DE)
-                        MapStyleOption.PROTOMAPS_DARK -> Color(0xFF1E2B31)
-                        MapStyleOption.TERRAIN_TOPO -> Color(0xFFC8C2AC)
-                        MapStyleOption.SATELLITE_IMAGERY -> Color(0xFF163541)
-                    }
-                    if (mapStyle == MapStyleOption.SATELLITE_IMAGERY) {
-                        drawRect(
-                            color = if ((tx + ty) % 2 == 0) Color(0xFF132C24) else Color(0xFF102620),
-                            topLeft = Offset(screenX, screenY),
-                            size = Size(tileSizePx, tileSizePx)
-                        )
-                    }
+                    // No tile yet, or none reachable. Draw an empty cell and nothing else.
+                    //
+                    // This deliberately does NOT synthesise streets, contours or satellite
+                    // imagery. Invented cartography is indistinguishable from a real map at a
+                    // glance, so a user could plan a route against a picture that does not
+                    // exist. An honest blank cell reads as "loading" or "offline"; a fake one
+                    // reads as truth.
                     drawRect(
-                        color = gridStrokeColor,
+                        color = unavailableTileColor.copy(alpha = 0.55f),
                         topLeft = Offset(screenX, screenY),
-                        size = Size(tileSizePx, tileSizePx),
-                        style = Stroke(width = 1.5f)
-                    )
-                    // Major arterial roads / contour lines
-                    drawLine(
-                        color = gridStrokeColor.copy(alpha = 0.7f),
-                        start = Offset(screenX, screenY + tileSizePx * 0.45f),
-                        end = Offset(screenX + tileSizePx, screenY + tileSizePx * 0.45f),
-                        strokeWidth = 3f
-                    )
-                    drawLine(
-                        color = gridStrokeColor.copy(alpha = 0.7f),
-                        start = Offset(screenX + tileSizePx * 0.6f, screenY),
-                        end = Offset(screenX + tileSizePx * 0.6f, screenY + tileSizePx),
-                        strokeWidth = 3f
+                        size = Size(tileSizePx, tileSizePx)
                     )
                 }
             }
@@ -574,3 +565,6 @@ private fun metersToPixels(meters: Float, latitude: Double, zoom: Float): Float 
     val metersPerPixel = (156543.03392 * cos(latitude * PI / 180.0)) / 2.0.pow(zoom.toDouble())
     return (meters / metersPerPixel.coerceAtLeast(0.01)).toFloat()
 }
+
+/** Bounded so a long pan session cannot exhaust memory. */
+private const val MAX_CACHED_TILES = 160
