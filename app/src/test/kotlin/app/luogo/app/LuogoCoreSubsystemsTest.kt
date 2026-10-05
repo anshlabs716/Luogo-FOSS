@@ -5,7 +5,7 @@ import app.luogo.app.data.crypto.CryptoEngine
 import app.luogo.app.data.geofence.GeofenceAndHistoryEngine
 import app.luogo.app.data.location.LocationFusionEngine
 import app.luogo.app.data.location.SmoothMarkerInterpolator
-import app.luogo.app.data.network.KotlinRelayServerEngine
+import app.luogo.relay.core.KotlinRelayServerEngine
 import app.luogo.app.domain.model.ActivityState
 import app.luogo.app.domain.model.FusedLocationFix
 import app.luogo.app.domain.model.ItemPresenceStatus

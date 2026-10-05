@@ -108,6 +108,8 @@ android {
 }
 
 dependencies {
+    // Relay authorisation rules, shared with the standalone server so they cannot drift.
+    implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

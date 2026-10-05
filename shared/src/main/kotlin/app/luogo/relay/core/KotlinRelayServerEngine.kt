@@ -1,4 +1,4 @@
-package app.luogo.app.data.network
+package app.luogo.relay.core
 
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -9,6 +9,10 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Transport-agnostic core of the Luogo relay.
+ *
+ * Lives in a shared module so the Android client and the standalone relay server enforce
+ * identical authorisation rules. It previously existed as two independent copies, which is
+ * how the server drifted into serving a stub while the tested engine held the real logic.
  *
  * Zero-knowledge by design: the server stores and forwards *ciphertext* it produced nothing
  * itself. It holds no group keys, so it cannot decrypt anyone's location even if compromised.
@@ -118,12 +122,14 @@ class KotlinRelayServerEngine(private val maxLogPerGroup: Int = 500) {
         groups[group.id] = group
         members[group.id] = ConcurrentHashMap.newKeySet<String>().apply { add(ownerId) }
         messageLog[group.id] = CopyOnWriteArrayList()
-        sightingStore[group.id] = CopyOnWriteArrayList()
         return group
     }
 
     fun groupsForUser(userId: String): List<Group> =
         members.entries.filter { it.value.contains(userId) }.mapNotNull { groups[it.key] }
+
+    /** Members currently in a group. Used for the group listing. */
+    fun memberCountOf(groupId: String): Int = members[groupId]?.size ?: 0
 
     fun isMember(groupId: String, userId: String): Boolean =
         members[groupId]?.contains(userId) == true
@@ -215,18 +221,41 @@ class KotlinRelayServerEngine(private val maxLogPerGroup: Int = 500) {
 
     // -------------------------------------------------------------- sightings
 
-    /** Accepts a crowdsourced BLE sighting. Opaque payload; the relay cannot read it. */
+    /**
+     * Accepts a crowdsourced BLE sighting. The payload is opaque; the relay cannot read it.
+     *
+     * Keyed on the full rotating identifier rather than a prefix. Sighting stores are created
+     * on demand: they used to be created only by [createGroup], which meant a sighting for an
+     * item whose owner was not in a group on this relay was silently dropped, and a short
+     * identifier threw an index error instead of being rejected.
+     *
+     * @return false when the identifier is malformed or the report id is a duplicate, which is
+     *   what stops a retrying helper from inflating an item's sighting count
+     */
     fun recordSighting(sighting: StoredSighting): Boolean {
-        val store = sightingStore[sighting.rotatingBleIdHex.substring(0, 8)] ?: return false
+        if (!isValidRotatingId(sighting.rotatingBleIdHex)) return false
+        if (sighting.reportId.isBlank()) return false
+        val store = sightingStore.computeIfAbsent(sighting.rotatingBleIdHex) {
+            CopyOnWriteArrayList()
+        }
+        // Duplicate prevention must be atomic against concurrent helpers.
         if (store.any { it.reportId == sighting.reportId }) return false
         store.add(sighting)
-        while (store.size > maxLogPerGroup) store.removeAt(0)
+        while (store.size > maxSightingsPerItem) store.removeAt(0)
         return true
     }
 
-    /** Most recent authenticated sighting for an item, so the owner sees a position quickly. */
-    fun latestSightingForItem(rotatingBleIdPrefix: String): StoredSighting? =
-        sightingStore[rotatingBleIdPrefix]?.maxByOrNull { it.timestamp }
+    /** Most recent sighting for an item, so its owner sees a position quickly. */
+    fun latestSightingForItem(rotatingBleIdHex: String): StoredSighting? {
+        if (!isValidRotatingId(rotatingBleIdHex)) return null
+        return sightingStore[rotatingBleIdHex]?.maxByOrNull { it.timestamp }
+    }
+
+    /** Sightings retained per item. Separate from the message log, which is per group. */
+    private val maxSightingsPerItem = 50
+
+    private fun isValidRotatingId(value: String): Boolean =
+        value.length == ROTATING_ID_HEX_LENGTH && value.all { it in "0123456789abcdefABCDEF" }
 
     // ------------------------------------------------------------- websocket
 
@@ -257,6 +286,9 @@ class KotlinRelayServerEngine(private val maxLogPerGroup: Int = 500) {
             .joinToString("") { "%02x".format(it) }
 
     companion object {
+        /** 16 bytes of HMAC-SHA256 output, hex encoded. */
+        const val ROTATING_ID_HEX_LENGTH = 32
+
         const val INVITE_TTL_MS = 7L * 24 * 60 * 60 * 1000
         private const val MAX_CIPHERTEXT_CHARS = 32 * 1024
     }

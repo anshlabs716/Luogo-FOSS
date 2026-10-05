@@ -20,4 +20,9 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Luogo-FOSS"
+
+// Relay logic shared by the Android client and the standalone server, so both enforce the
+// same authorisation rules instead of drifting apart.
+include(":shared")
+include(":relay")
 include(":app")
