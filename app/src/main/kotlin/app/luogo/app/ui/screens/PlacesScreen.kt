@@ -2,8 +2,6 @@ package app.luogo.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,13 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Work
@@ -27,14 +23,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,246 +42,284 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.luogo.app.domain.model.FusedLocationFix
 import app.luogo.app.domain.model.PlaceCategory
 import app.luogo.app.domain.model.SavedPlace
+import app.luogo.app.ui.components.DetailRow
+import app.luogo.app.ui.components.EmptyState
+import app.luogo.app.ui.components.FreshnessChip
+import app.luogo.app.ui.components.FreshnessTone
+import app.luogo.app.ui.components.NoticeCard
+import app.luogo.app.ui.components.NoticeTone
+import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
+import kotlin.math.roundToInt
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Saved places and the geofences around them.
+ *
+ * The inside/outside state is shown per place because "did the app notice?" is the question
+ * people actually have about geofencing.
+ */
 @Composable
 fun PlacesScreen(viewModel: LuogoViewModel) {
     val places by viewModel.places.collectAsState()
     val myFix by viewModel.fusedLocation.collectAsState()
-    var showAddPlaceDialog by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<SavedPlace?>(null) }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .testTag("places_screen"),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            bottom = LuogoSpacing.extraLarge
+        )
     ) {
         item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Saved Places & Geofences",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                    Text(
-                        text = "Configure Home, Work, School, or custom geofences with arrival and departure notifications.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            ScreenHeader(
+                title = "Places",
+                subtitle = if (places.isEmpty()) {
+                    "No geofences yet"
+                } else {
+                    "${places.count { it.currentlyInside }} of ${places.size} geofences active"
+                },
+                trailing = {
+                    IconButton(onClick = { showAdd = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add a saved place")
+                    }
                 }
-                Button(
-                    onClick = { showAddPlaceDialog = true },
-                    modifier = Modifier.testTag("add_place_button")
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Save Place")
-                }
+            )
+        }
+
+        if (myFix == null) {
+            item {
+                NoticeCard(
+                    text = "Places are added at your current location. Waiting for a location fix.",
+                    modifier = Modifier.padding(horizontal = LuogoSpacing.medium),
+                    tone = NoticeTone.INFO
+                )
             }
         }
 
-        items(places, key = { it.id }) { place ->
-            SavedPlaceCard(
-                place = place,
-                onToggleEnabled = { enabled -> viewModel.togglePlaceEnabled(place.id, enabled) },
-                onViewOnMap = { viewModel.focusOnPlace(place) },
-                onNavigate = { viewModel.requestRouteTo(place.latitude, place.longitude) },
-                onDelete = { viewModel.deletePlace(place.id) }
-            )
+        if (places.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Default.Place,
+                    title = "No saved places",
+                    body = "Add Home, Work or School to get an alert when someone arrives or leaves."
+                )
+            }
+        } else {
+            items(places, key = { it.id }) { place ->
+                PlaceCard(
+                    place = place,
+                    onToggle = { viewModel.togglePlaceEnabled(place.id, it) },
+                    onShowOnMap = { viewModel.focusOnPlace(place) },
+                    onRoute = { viewModel.requestRouteTo(place.latitude, place.longitude) },
+                    onDelete = { deleteTarget = place },
+                    modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 4.dp)
+                )
+            }
         }
     }
 
-    if (showAddPlaceDialog) {
-        var name by remember { mutableStateOf("") }
-        var category by remember { mutableStateOf(PlaceCategory.CUSTOM) }
-        var radiusMeters by remember { mutableFloatStateOf(150f) }
-        var notifyArrival by remember { mutableStateOf(true) }
-        var notifyDeparture by remember { mutableStateOf(true) }
-        val defaultLat = myFix?.latitude ?: 37.7749
-        val defaultLon = myFix?.longitude ?: -122.4194
-        var latInput by remember { mutableStateOf(String.format("%.5f", defaultLat)) }
-        var lonInput by remember { mutableStateOf(String.format("%.5f", defaultLon)) }
-
-        AlertDialog(
-            onDismissRequest = { showAddPlaceDialog = false },
-            title = { Text("Add Saved Place Geofence") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Place Name (e.g. Home, Gym, School)") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("new_place_name_input")
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PlaceCategory.entries.forEach { cat ->
-                            FilterChip(
-                                selected = category == cat,
-                                onClick = {
-                                    category = cat
-                                    if (name.isBlank()) name = cat.label
-                                },
-                                label = { Text(cat.label) }
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = latInput,
-                            onValueChange = { latInput = it },
-                            label = { Text("Latitude") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = lonInput,
-                            onValueChange = { lonInput = it },
-                            label = { Text("Longitude") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Text("Geofence Radius: ${radiusMeters.toInt()} meters", style = MaterialTheme.typography.labelMedium)
-                    Slider(
-                        value = radiusMeters,
-                        onValueChange = { radiusMeters = it },
-                        valueRange = 40f..1000f
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = notifyArrival, onCheckedChange = { notifyArrival = it })
-                        Text("Notify on Arrival")
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Checkbox(checked = notifyDeparture, onCheckedChange = { notifyDeparture = it })
-                        Text("Notify on Departure")
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val lat = latInput.toDoubleOrNull() ?: defaultLat
-                        val lon = lonInput.toDoubleOrNull() ?: defaultLon
-                        viewModel.addSavedPlace(
-                            name = name,
-                            category = category,
-                            lat = lat,
-                            lon = lon,
-                            radiusMeters = radiusMeters,
-                            notifyArrival = notifyArrival,
-                            notifyDeparture = notifyDeparture
-                        )
-                        showAddPlaceDialog = false
-                    },
-                    modifier = Modifier.testTag("confirm_save_place_button")
-                ) {
-                    Text("Save Place")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddPlaceDialog = false }) { Text("Cancel") }
+    if (showAdd) {
+        AddPlaceDialog(
+            fix = myFix,
+            onDismiss = { showAdd = false },
+            onSave = { name, category, lat, lon, radius ->
+                viewModel.addSavedPlace(name, category, lat, lon, radius, true, true)
+                showAdd = false
             }
+        )
+    }
+
+    deleteTarget?.let { place ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete ${place.name}?") },
+            text = { Text("Arrival and departure alerts for this place will stop.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deletePlace(place.id)
+                    deleteTarget = null
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }
         )
     }
 }
 
 @Composable
-private fun SavedPlaceCard(
+private fun PlaceCard(
     place: SavedPlace,
-    onToggleEnabled: (Boolean) -> Unit,
-    onViewOnMap: () -> Unit,
-    onNavigate: () -> Unit,
-    onDelete: () -> Unit
+    onToggle: (Boolean) -> Unit,
+    onShowOnMap: () -> Unit,
+    onRoute: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val icon = when (place.category) {
-        PlaceCategory.HOME -> Icons.Default.Home
-        PlaceCategory.WORK -> Icons.Default.Work
-        PlaceCategory.SCHOOL -> Icons.Default.School
-        PlaceCategory.CUSTOM -> Icons.Default.Place
-    }
-
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("place_card_${place.id}"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(place.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(
-                            "${place.category.label} · ${place.radiusMeters.toInt()}m radius · ${String.format("%.4f, %.4f", place.latitude, place.longitude)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = place.category.icon(),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(place.name, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = "${place.category.label} · ${place.radiusMeters.toInt()} m radius",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-
-                Switch(
-                    checked = place.enabled,
-                    onCheckedChange = onToggleEnabled
+                FreshnessChip(
+                    label = if (place.currentlyInside) "INSIDE" else "OUTSIDE",
+                    tone = if (place.currentlyInside) FreshnessTone.LIVE else FreshnessTone.UNKNOWN
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!place.enabled) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Geofence is switched off for this place.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (place.currentlyInside) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    }
-                ) {
-                    Text(
-                        text = buildString {
-                            append(if (place.currentlyInside) "INSIDE GEOFENCE" else "OUTSIDE")
-                            if (place.notifyOnArrival) append(" · Arrival Alert")
-                            if (place.notifyOnDeparture) append(" · Departure Alert")
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Alert on arrival and departure",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(checked = place.enabled, onCheckedChange = onToggle)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onShowOnMap, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Place, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Show")
                 }
-
-                Row {
-                    IconButton(onClick = onViewOnMap) {
-                        Icon(Icons.Default.LocationOn, contentDescription = "Show place on map")
-                    }
-                    IconButton(onClick = onNavigate) {
-                        Icon(Icons.Default.Directions, contentDescription = "Route to place")
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete place")
-                    }
+                OutlinedButton(onClick = onRoute, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Directions, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Route")
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete ${place.name}")
                 }
             }
         }
     }
+}
+
+@Composable
+private fun AddPlaceDialog(
+    fix: FusedLocationFix?,
+    onDismiss: () -> Unit,
+    onSave: (String, PlaceCategory, Double, Double, Float) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf(PlaceCategory.CUSTOM) }
+    var radius by remember { mutableFloatStateOf(120f) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New saved place") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    placeholder = { Text("Home") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(LuogoSpacing.medium))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PlaceCategory.entries.forEach { candidate ->
+                        FilterChip(
+                            selected = category == candidate,
+                            onClick = { category = candidate },
+                            label = { Text(candidate.label) }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(LuogoSpacing.medium))
+                Text(
+                    "Geofence radius: ${radius.roundToInt()} m",
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Slider(
+                    value = radius,
+                    onValueChange = { radius = it },
+                    valueRange = 50f..1000f,
+                    modifier = Modifier.testTag("radius_slider")
+                )
+                // A place needs a real position. Saving 0,0 would silently create a geofence
+                // in the Gulf of Guinea and look like it worked.
+                if (fix == null) {
+                    Text(
+                        text = "Waiting for a location fix. A place cannot be saved until the " +
+                            "app knows where you are.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                } else {
+                    Text(
+                        text = "Using your current fix, accurate to ±" +
+                            "${fix.horizontalAccuracyMeters.toInt()} m",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val position = fix
+                    if (position != null) {
+                        onSave(
+                            name.trim(),
+                            category,
+                            position.latitude,
+                            position.longitude,
+                            radius
+                        )
+                    }
+                },
+                enabled = name.isNotBlank() && fix != null
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+private fun PlaceCategory.icon(): ImageVector = when (this) {
+    PlaceCategory.HOME -> Icons.Default.Home
+    PlaceCategory.SCHOOL -> Icons.Default.School
+    PlaceCategory.WORK -> Icons.Default.Work
+    PlaceCategory.CUSTOM -> Icons.Default.Place
 }

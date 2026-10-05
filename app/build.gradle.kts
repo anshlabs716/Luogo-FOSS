@@ -27,6 +27,11 @@ android {
             // arm ABIs roughly halves the download without excluding real hardware.
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
+
+        // The app ships one language. Stripping the ~80 locales that AndroidX and Compose
+        // bundle removes several hundred KB of translation strings that would never be shown.
+        // No feature is lost; only unused translations.
+        resourceConfigurations += listOf("en")
     }
 
     signingConfigs {

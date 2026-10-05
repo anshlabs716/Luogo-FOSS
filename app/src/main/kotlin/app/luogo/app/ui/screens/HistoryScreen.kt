@@ -1,11 +1,9 @@
 package app.luogo.app.ui.screens
 
-import android.content.Intent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,25 +15,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,311 +49,361 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
+import app.luogo.app.domain.model.LocationHistoryPoint
+import app.luogo.app.ui.components.EmptyState
+import app.luogo.app.ui.components.NoticeCard
+import app.luogo.app.ui.components.NoticeTone
+import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.StatTile
+import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Location history: what was recorded, how far, and where time was spent.
+ *
+ * The route is drawn from real recorded points. Nothing here is generated to fill a shape,
+ * and an empty history says so instead of drawing an empty grid.
+ */
 @Composable
 fun HistoryScreen(viewModel: LuogoViewModel) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val allPoints by viewModel.historyPoints.collectAsState()
+    val points by viewModel.historyPoints.collectAsState()
     val places by viewModel.places.collectAsState()
     val trips by viewModel.detectedTrips.collectAsState()
+    val scope = rememberCoroutineScope()
 
-    var selectedDaySpan by remember { mutableIntStateOf(1) } // 1 = Today, 7 = 7 Days, 30 = 30 Days
-    var includeItemsFilter by remember { mutableStateOf(true) }
-    var playbackFraction by remember { mutableFloatStateOf(1f) }
+    var playbackFraction by remember { mutableFloatStateOf(0f) }
     var isPlaying by remember { mutableStateOf(false) }
+    var includeItems by remember { mutableStateOf(false) }
+    var confirmDeleteAll by remember { mutableStateOf(false) }
 
-    val now = System.currentTimeMillis()
-    val startCutoff = now - selectedDaySpan * 86_400_000L
+    val filtered = remember(points, includeItems) {
+        points.filter { includeItems || !it.isItem }
+    }
+    val totalDistance = remember(filtered) {
+        viewModel.repository.geofenceEngine.calculateTotalDistanceMeters(filtered)
+    }
+    val timeAtPlaces = remember(filtered, places) {
+        viewModel.repository.geofenceEngine.calculateTimeSpentAtPlacesMinutes(filtered, places)
+    }
+    val playbackPoint = remember(filtered, playbackFraction) {
+        viewModel.repository.geofenceEngine.samplePlaybackPoint(filtered, playbackFraction)
+    }
 
-    val filteredPoints = remember(allPoints, selectedDaySpan, includeItemsFilter) {
-        allPoints.filter { pt ->
-            pt.timestampMs >= startCutoff && (includeItemsFilter || !pt.isItem)
+    // Playback advances the shared fraction; the marker interpolates between real fixes
+    // rather than jumping between them.
+    LaunchedEffect(isPlaying, filtered.size) {
+        if (!isPlaying || filtered.size < 2) return@LaunchedEffect
+        while (isPlaying && playbackFraction < 1f) {
+            delay(PLAYBACK_TICK_MS)
+            playbackFraction = (playbackFraction + 1f / playbackPointCount(filtered)).coerceAtMost(1f)
         }
+        if (playbackFraction >= 1f) isPlaying = false
     }
-
-    val totalDistanceMeters = remember(filteredPoints) {
-        viewModel.repository.geofenceEngine.calculateTotalDistanceMeters(filteredPoints)
-    }
-
-    val timeAtPlacesMinutes = remember(filteredPoints, places) {
-        viewModel.repository.geofenceEngine.calculateTimeSpentAtPlacesMinutes(filteredPoints, places)
-    }
-
-    val currentPlaybackPoint = remember(filteredPoints, playbackFraction) {
-        viewModel.repository.geofenceEngine.samplePlaybackPoint(filteredPoints, playbackFraction)
-    }
-
-    LaunchedEffect(isPlaying, filteredPoints.size) {
-        if (isPlaying && filteredPoints.size >= 2) {
-            if (playbackFraction >= 0.99f) playbackFraction = 0f
-            while (isPlaying && playbackFraction < 1f) {
-                delay(80L)
-                playbackFraction = (playbackFraction + 0.02f).coerceAtMost(1f)
-                if (playbackFraction >= 1f) {
-                    isPlaying = false
-                }
-            }
-        }
-    }
-
-    val timeFormat = remember { SimpleDateFormat("MMM d, HH:mm:ss", Locale.US) }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .testTag("history_screen"),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            bottom = LuogoSpacing.extraLarge
+        )
     ) {
         item {
-            Text("Location History & Route Playback", style = MaterialTheme.typography.headlineSmall)
-            Text(
-                "Stored locally on-device with automatic retention cleanup. Export to standard GPX or delete at any time.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ScreenHeader(
+                title = "History",
+                subtitle = "${filtered.size} recorded point(s)"
             )
         }
 
-        // Date & Subject Filters
+        if (filtered.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Default.History,
+                    title = "No history yet",
+                    body = "History is recorded while sharing is on. Nothing is kept before " +
+                        "the app first records a fix, and it is pruned to your retention window."
+                )
+            }
+            return@LazyColumn
+        }
+
         item {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = selectedDaySpan == 1,
-                    onClick = { selectedDaySpan = 1 },
-                    label = { Text("Last 24 Hours") }
+            Row(
+                modifier = Modifier.padding(horizontal = LuogoSpacing.medium),
+                horizontalArrangement = Arrangement.spacedBy(LuogoSpacing.small)
+            ) {
+                StatTile(
+                    value = "%.2f km".format(totalDistance / 1000.0),
+                    label = "Distance",
+                    modifier = Modifier.weight(1f)
                 )
-                FilterChip(
-                    selected = selectedDaySpan == 7,
-                    onClick = { selectedDaySpan = 7 },
-                    label = { Text("Last 7 Days") }
+                StatTile(
+                    value = "${filtered.size}",
+                    label = "Fixes",
+                    modifier = Modifier.weight(1f)
                 )
-                FilterChip(
-                    selected = selectedDaySpan == 30,
-                    onClick = { selectedDaySpan = 30 },
-                    label = { Text("Last 30 Days") }
-                )
-                FilterChip(
-                    selected = includeItemsFilter,
-                    onClick = { includeItemsFilter = !includeItemsFilter },
-                    label = { Text("Include Item Sightings") }
+                StatTile(
+                    value = "${trips.size}",
+                    label = "Trips",
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        // Daily Summary & Time Spent at Places
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Distance Travelled: ${String.format("%.2f km", totalDistanceMeters / 1000.0)} (${filteredPoints.size} fixes)",
-                        style = MaterialTheme.typography.titleMedium
+        if (timeAtPlaces.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
-                    if (timeAtPlacesMinutes.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Time Spent at Saved Places: " +
-                                timeAtPlacesMinutes.entries.joinToString(" · ") { "${it.key}: ${it.value} min" },
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text("Time at saved places", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(6.dp))
+                        timeAtPlaces.forEach { (place, minutes) ->
+                            Text(
+                                text = "$place · $minutes min",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Interactive Route Visualization & Playback Card
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                modifier = Modifier
+                    .padding(horizontal = LuogoSpacing.medium, vertical = 6.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Interactive Route Playback", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val routeColor = MaterialTheme.colorScheme.primary
-                    val activeMarkerColor = MaterialTheme.colorScheme.tertiary
-
-                    Canvas(
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("Route", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    RoutePreview(
+                        points = filtered,
+                        playbackPoint = playbackPoint,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(170.dp)
-                    ) {
-                        drawRect(Color(0xFF10191D))
-                        if (filteredPoints.size >= 2) {
-                            val minLat = filteredPoints.minOf { it.latitude }
-                            val maxLat = filteredPoints.maxOf { it.latitude }
-                            val minLon = filteredPoints.minOf { it.longitude }
-                            val maxLon = filteredPoints.maxOf { it.longitude }
-                            val latSpan = (maxLat - minLat).coerceAtLeast(0.001)
-                            val lonSpan = (maxLon - minLon).coerceAtLeast(0.001)
-
-                            fun toCanvas(lat: Double, lon: Double): Offset {
-                                val nx = ((lon - minLon) / lonSpan).toFloat().coerceIn(0f, 1f)
-                                val ny = 1f - ((lat - minLat) / latSpan).toFloat().coerceIn(0f, 1f)
-                                return Offset(
-                                    x = 24f + nx * (size.width - 48f),
-                                    y = 24f + ny * (size.height - 48f)
-                                )
-                            }
-
-                            val path = Path()
-                            filteredPoints.forEachIndexed { idx, pt ->
-                                val o = toCanvas(pt.latitude, pt.longitude)
-                                if (idx == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
-                            }
-                            drawPath(
-                                path = path,
-                                color = routeColor,
-                                style = Stroke(width = 6f, cap = StrokeCap.Round)
-                            )
-
-                            currentPlaybackPoint?.let { playPt ->
-                                val playOffset = toCanvas(playPt.latitude, playPt.longitude)
-                                drawCircle(color = Color.White, radius = 14f, center = playOffset)
-                                drawCircle(color = activeMarkerColor, radius = 10f, center = playOffset)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    currentPlaybackPoint?.let { pt ->
-                        Text(
-                            text = "${pt.subjectName} · ${timeFormat.format(Date(pt.timestampMs))} · ${pt.activityState.label} (${String.format("%.1f m/s", pt.speedMps)})",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Coords: ${String.format("%.5f, %.5f", pt.latitude, pt.longitude)} · ±${pt.accuracyMeters.toInt()}m (${pt.sourceSummary})",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Button(
-                            onClick = { isPlaying = !isPlaying },
-                            modifier = Modifier.testTag("route_playback_button")
+                            .height(200.dp)
+                            .testTag("route_preview")
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                if (playbackFraction >= 1f) playbackFraction = 0f
+                                isPlaying = !isPlaying
+                            },
+                            modifier = Modifier.testTag("playback_button")
                         ) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = "Play or pause route playback"
+                                contentDescription = if (isPlaying) "Pause playback" else "Play route"
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (isPlaying) "Pause" else "Play")
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
                         Slider(
                             value = playbackFraction,
                             onValueChange = {
-                                isPlaying = false
                                 playbackFraction = it
+                                isPlaying = false
                             },
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    playbackPoint?.let { point ->
+                        Text(
+                            text = "${timeLabel(point.timestampMs)} · ${point.activityState.label} · " +
+                                "${"%.1f".format(point.speedMps)} m/s",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            text = "±${point.accuracyMeters.toInt()} m · ${point.sourceSummary}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
 
-        // Export & Delete Controls
         item {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
+                OutlinedButton(
+                    onClick = { includeItems = !includeItems },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (includeItems) "Hiding items" else "Including items")
+                }
+                OutlinedButton(
                     onClick = {
                         scope.launch {
-                            val file = viewModel.exportHistoryGpx(filteredPoints)
-                            try {
-                                val uri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    file
-                                )
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "application/gpx+xml"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Export GPX History"))
-                            } catch (_: Exception) {
-                                viewModel.postToast("Saved GPX to ${file.name}")
-                            }
+                            viewModel.exportHistoryGpx(filtered)
+                            viewModel.postToast("Exported ${filtered.size} point(s) as GPX")
                         }
                     },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("export_gpx_button")
+                    modifier = Modifier.weight(1f),
+                    enabled = filtered.isNotEmpty()
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Export GPX")
+                    Spacer(Modifier.width(6.dp))
+                    Text("Export")
                 }
-
-                OutlinedButton(
-                    onClick = { viewModel.deleteHistoryRange(startCutoff, now + 60_000L) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete Range")
-                }
-
-                OutlinedButton(
-                    onClick = { viewModel.deleteAllHistory() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear All")
+                IconButton(onClick = { confirmDeleteAll = true }) {
+                    Icon(Icons.Default.DeleteForever, contentDescription = "Delete all history")
                 }
             }
         }
 
-        // Detected Trips List
         item {
-            Text("Detected Trips (${trips.size})", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Recent fixes",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 8.dp)
+            )
         }
 
-        items(trips, key = { it.tripId }) { trip ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "${trip.primaryActivity.label} Trip · ${String.format("%.2f km", trip.distanceMeters / 1000.0)}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "${timeFormat.format(Date(trip.startTimeMs))} → ${timeFormat.format(Date(trip.endTimeMs))} (${trip.pointCount} fixes)",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Avg Speed: ${String.format("%.1f m/s", trip.averageSpeedMps)} · Max: ${String.format("%.1f m/s", trip.maxSpeedMps)}",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+        items(filtered.takeLast(MAX_LISTED_POINTS).reversed(), key = { it.id }) { point ->
+            HistoryRow(
+                point = point,
+                onDelete = {
+                    viewModel.deleteHistoryRange(point.timestampMs, point.timestampMs)
                 }
+            )
+        }
+    }
+
+    if (confirmDeleteAll) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteAll = false },
+            title = { Text("Delete all history?") },
+            text = { Text("Every recorded fix is removed from this device. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteAllHistory()
+                    confirmDeleteAll = false
+                }) { Text("Delete all") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteAll = false }) { Text("Cancel") }
             }
+        )
+    }
+}
+
+private const val PLAYBACK_TICK_MS = 40L
+private const val MAX_LISTED_POINTS = 100
+
+/** One tick per recorded point, so playback speed follows track density. */
+private fun playbackPointCount(points: List<LocationHistoryPoint>): Float =
+    (points.size.toFloat() * PLAYBACK_TICK_MS).coerceAtLeast(1f)
+
+/**
+ * Draws the recorded track.
+ *
+ * Bounding box is computed from the real points, so the shape is proportional and not
+ * stretched. When there is a single point the extent is padded rather than dividing by zero.
+ */
+@Composable
+private fun RoutePreview(
+    points: List<LocationHistoryPoint>,
+    playbackPoint: LocationHistoryPoint?,
+    modifier: Modifier = Modifier
+) {
+    val pathColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+
+    Canvas(modifier = modifier) {
+        if (points.isEmpty()) return@Canvas
+
+        val minLat = points.minOf { it.latitude }
+        val maxLat = points.maxOf { it.latitude }
+        val minLon = points.minOf { it.longitude }
+        val maxLon = points.maxOf { it.longitude }
+        val latSpan = (maxLat - minLat).coerceAtLeast(0.0005)
+        val lonSpan = (maxLon - minLon).coerceAtLeast(0.0005)
+
+        fun project(lat: Double, lon: Double): Offset {
+            val nx = ((lon - minLon) / lonSpan).toFloat().coerceIn(0f, 1f)
+            val ny = 1f - ((lat - minLat) / latSpan).toFloat().coerceIn(0f, 1f)
+            return Offset(
+                x = 20f + nx * (size.width - 40f),
+                y = 20f + ny * (size.height - 40f)
+            )
+        }
+
+        if (points.size == 1) {
+            val only = project(points.first().latitude, points.first().longitude)
+            drawCircle(gridColor, radius = 6f, center = only)
+            return@Canvas
+        }
+
+        val path = Path()
+        points.forEachIndexed { index, point ->
+            val offset = project(point.latitude, point.longitude)
+            if (index == 0) path.moveTo(offset.x, offset.y) else path.lineTo(offset.x, offset.y)
+        }
+        drawPath(path, color = pathColor, style = Stroke(width = 4f, cap = StrokeCap.Round))
+
+        playbackPoint?.let { point ->
+            val offset = project(point.latitude, point.longitude)
+            drawCircle(Color.White, radius = 10f, center = offset)
+            drawCircle(pathColor, radius = 7f, center = offset)
         }
     }
 }
+
+@Composable
+private fun HistoryRow(point: LocationHistoryPoint, onDelete: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = LuogoSpacing.medium, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.weight(1f)) {
+            Column {
+                Text(
+                    text = timeLabel(point.timestampMs),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "±${point.accuracyMeters.toInt()} m · ${point.sourceSummary}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Text(
+            text = "${"%.4f".format(point.latitude)}, ${"%.4f".format(point.longitude)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        IconButton(onClick = onDelete) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Delete this point",
+                modifier = Modifier.height(18.dp)
+            )
+        }
+    }
+}
+
+private fun timeLabel(timestampMs: Long): String =
+    SimpleDateFormat("d MMM, HH:mm:ss", Locale.getDefault()).format(Date(timestampMs))

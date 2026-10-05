@@ -3,13 +3,8 @@ package app.luogo.app.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,27 +12,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Directions
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.GroupAdd
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.PersonRemove
-import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,469 +40,506 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.luogo.app.domain.model.GroupCategory
-import app.luogo.app.domain.model.PeerGroup
 import app.luogo.app.domain.model.PeerLocationState
-import app.luogo.app.ui.util.QrCodeGenerator
+import app.luogo.app.ui.components.DetailRow
+import app.luogo.app.ui.components.EmptyState
+import app.luogo.app.ui.components.FreshnessChip
+import app.luogo.app.ui.components.FreshnessTone
+import app.luogo.app.ui.components.InitialsAvatar
+import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.SectionHeader
+import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * People: who you share with, and the groups that make it happen.
+ *
+ * Layout order follows what people actually come here to do: check whether sharing is on,
+ * see who is where, then manage groups.
+ */
 @Composable
 fun PeopleScreen(viewModel: LuogoViewModel) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val profile by viewModel.userProfile.collectAsState()
-    val groups by viewModel.groups.collectAsState()
     val peers by viewModel.peers.collectAsState()
+    val groups by viewModel.groups.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    var showCreateGroupDialog by remember { mutableStateOf(false) }
-    var showJoinGroupDialog by remember { mutableStateOf(false) }
-    var activeInvitePayload by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var displayNameInput by remember(profile.displayName) { mutableStateOf(profile.displayName) }
-    var selectedColorArgb by remember(profile.colorArgb) { mutableLongStateOf(profile.colorArgb) }
-
-    val colorChoices = listOf(
-        0xFF00796BL,
-        0xFF1E88E5L,
-        0xFFD81B60L,
-        0xFF8E24AAL,
-        0xFFF4511EL,
-        0xFF43A047L
-    )
+    var showCreateGroup by remember { mutableStateOf(false) }
+    var showJoinGroup by remember { mutableStateOf(false) }
+    var inviteForGroupId by remember { mutableStateOf<String?>(null) }
+    var inviteForGroupName by remember { mutableStateOf("") }
+    var invitePayload by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .testTag("people_screen"),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            bottom = LuogoSpacing.extraLarge
+        )
     ) {
         item {
-            Text(
-                text = "Live People & E2EE Groups",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Text(
-                text = "End-to-end encrypted with XChaCha20/ChaCha20-Poly1305. Group keys are shared only via QR/invite codes.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ScreenHeader(
+                title = "People",
+                subtitle = "${peers.size} sharing with you"
             )
         }
 
-        // My Identity & Global Live Sharing Card
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(selectedColorArgb.toInt() or -0x1000000)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = displayNameInput.take(2).uppercase(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(profile.displayName, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    text = if (profile.sharingEnabled) "Live E2EE Sharing Active (~2s moving)" else "Sharing Paused",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (profile.sharingEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = profile.sharingEnabled,
-                            onCheckedChange = { enabled ->
-                                viewModel.updateProfileAndSharing(displayNameInput, selectedColorArgb, enabled)
-                            },
-                            modifier = Modifier.testTag("global_sharing_switch")
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    OutlinedTextField(
-                        value = displayNameInput,
-                        onValueChange = { displayNameInput = it },
-                        label = { Text("Display Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+            SharingCard(
+                displayName = profile.displayName,
+                colorArgb = profile.colorArgb,
+                sharingEnabled = profile.sharingEnabled,
+                onToggle = { enabled ->
+                    viewModel.updateProfileAndSharing(
+                        profile.displayName,
+                        profile.colorArgb,
+                        enabled
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Person Color Picker + Save
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            colorChoices.forEach { col ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(col.toInt() or -0x1000000))
-                                        .clickable {
-                                            selectedColorArgb = col
-                                            viewModel.updateProfileAndSharing(displayNameInput, col, profile.sharingEnabled)
-                                        }
-                                )
-                            }
-                        }
-                        TextButton(
-                            onClick = {
-                                viewModel.updateProfileAndSharing(displayNameInput, selectedColorArgb, profile.sharingEnabled)
-                            }
-                        ) {
-                            Text("Save Profile")
-                        }
-                    }
-
-                    // Temporary Sharing Timers
-                    Text(
-                        "Temporary Sharing Timer:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(
-                            onClick = { viewModel.updateProfileAndSharing(displayNameInput, selectedColorArgb, true, 15) },
-                            label = { Text("15 min") }
-                        )
-                        AssistChip(
-                            onClick = { viewModel.updateProfileAndSharing(displayNameInput, selectedColorArgb, true, 60) },
-                            label = { Text("1 hour") }
-                        )
-                        AssistChip(
-                            onClick = { viewModel.updateProfileAndSharing(displayNameInput, selectedColorArgb, true, 480) },
-                            label = { Text("8 hours") }
-                        )
-                        AssistChip(
-                            onClick = { viewModel.updateProfileAndSharing(displayNameInput, selectedColorArgb, true, null) },
-                            label = { Text("Always On") }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Group Action Buttons
-        item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Button(
-                    onClick = { showCreateGroupDialog = true },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("create_group_button")
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("New Group")
-                }
-                OutlinedButton(
-                    onClick = { showJoinGroupDialog = true },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("join_group_button")
-                ) {
-                    Icon(Icons.Default.GroupAdd, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Join via Invite")
-                }
-            }
-        }
-
-        // Groups List with Per-Group Sharing & Members
-        items(groups, key = { it.id }) { group ->
-            val groupPeers = peers.filter { it.groupId == group.id }
-            GroupCard(
-                group = group,
-                members = groupPeers,
-                onToggleShare = { enabled -> viewModel.toggleGroupSharing(group.id, enabled) },
-                onInviteClick = {
-                    scope.launch {
-                        val payload = viewModel.generateInviteForGroup(group.id)
-                        activeInvitePayload = group.name to payload
-                    }
                 },
-                onLeaveGroup = { viewModel.leaveGroup(group.id) },
-                onRemoveMember = { userId -> viewModel.removeMember(group.id, userId) },
-                onLocatePeer = { peer -> viewModel.focusOnPeer(peer) },
-                onRoutePeer = { peer -> viewModel.requestRouteTo(peer.latitude, peer.longitude) }
+                modifier = Modifier.padding(horizontal = LuogoSpacing.medium)
             )
+        }
+
+        item {
+            SectionHeader("Where they are now")
+        }
+
+        if (peers.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Default.Groups,
+                    title = "Nobody is sharing yet",
+                    body = "Create a group and share its invite code. Whoever joins with that code " +
+                        "can see your encrypted location, and you can see theirs."
+                )
+            }
+        } else {
+            items(peers, key = { it.userId }) { peer ->
+                PeerCard(
+                    peer = peer,
+                    onOpenOnMap = { viewModel.focusOnPeer(peer) },
+                    onRoute = { viewModel.requestRouteTo(peer.latitude, peer.longitude) },
+                    modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 4.dp)
+                )
+            }
+        }
+
+        item {
+            SectionHeader("Groups") {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(
+                        onClick = { showJoinGroup = true },
+                        modifier = Modifier.testTag("join_group_button")
+                    ) {
+                        Icon(Icons.Default.Link, contentDescription = "Join a group with an invite code")
+                    }
+                    IconButton(
+                        onClick = { showCreateGroup = true },
+                        modifier = Modifier.testTag("create_group_button")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Create a group")
+                    }
+                }
+            }
+        }
+
+        if (groups.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Default.Groups,
+                    title = "No groups yet",
+                    body = "Groups keep sharing separate, so family and friends do not all see the " +
+                        "same thing."
+                )
+            }
+        } else {
+            items(groups, key = { it.id }) { group ->
+                GroupCard(
+                    name = group.name,
+                    category = group.category,
+                    memberCount = group.memberCount,
+                    shareMyLocation = group.shareMyLocation,
+                    onToggleSharing = { enabled -> viewModel.toggleGroupSharing(group.id, enabled) },
+                    onInvite = {
+                        inviteForGroupId = group.id
+                        inviteForGroupName = group.name
+                        invitePayload = null
+                    },
+                    onLeave = { viewModel.leaveGroup(group.id) },
+                    modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 4.dp)
+                )
+            }
         }
     }
 
-    if (showCreateGroupDialog) {
-        var newName by remember { mutableStateOf("") }
-        var selectedCategory by remember { mutableStateOf(GroupCategory.FRIENDS) }
-        AlertDialog(
-            onDismissRequest = { showCreateGroupDialog = false },
-            title = { Text("Create E2EE Group") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = newName,
-                        onValueChange = { newName = it },
-                        label = { Text("Group Name (e.g. Family, Hiking Crew)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GroupCategory.entries.forEach { cat ->
-                            FilterChip(
-                                selected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
-                                label = { Text(cat.label) }
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.createGroup(newName, selectedCategory)
-                        showCreateGroupDialog = false
-                    }
-                ) {
-                    Text("Create")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCreateGroupDialog = false }) { Text("Cancel") }
+    if (showCreateGroup) {
+        CreateGroupDialog(
+            onDismiss = { showCreateGroup = false },
+            onCreate = { name, category ->
+                viewModel.createGroup(name, category)
+                showCreateGroup = false
             }
         )
     }
 
-    if (showJoinGroupDialog) {
-        var inviteCodeInput by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showJoinGroupDialog = false },
-            title = { Text("Join Group with Invite Key") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Paste a 'luogo-invite-key: v1:...' payload shared out-of-band or scanned from a QR code:",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    OutlinedTextField(
-                        value = inviteCodeInput,
-                        onValueChange = { inviteCodeInput = it },
-                        label = { Text("luogo-invite-key: v1:...") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.joinGroupWithInvite(inviteCodeInput)
-                        showJoinGroupDialog = false
-                    }
-                ) {
-                    Text("Join Group")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showJoinGroupDialog = false }) { Text("Cancel") }
+    if (showJoinGroup) {
+        JoinGroupDialog(
+            onDismiss = { showJoinGroup = false },
+            onJoin = { code ->
+                viewModel.joinGroupWithInvite(code)
+                showJoinGroup = false
             }
         )
     }
 
-    activeInvitePayload?.let { (groupName, payload) ->
-        val qrBitmap = remember(payload) { QrCodeGenerator.generateQrBitmap(payload, 512) }
-        AlertDialog(
-            onDismissRequest = { activeInvitePayload = null },
-            title = { Text("Invite to $groupName") },
-            text = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Scan QR code or copy out-of-band key. The relay server never sees this 256-bit encryption key.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    qrBitmap?.let { bmp ->
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "Group Invite QR Code",
-                            modifier = Modifier.size(210.dp)
-                        )
-                    }
-                    Text(
-                        text = payload,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+    inviteForGroupId?.let { groupId ->
+        InviteDialog(
+            groupName = inviteForGroupName,
+            payload = invitePayload,
+            onDismiss = { inviteForGroupId = null },
+            onGenerate = {
+                scope.launch { invitePayload = viewModel.generateInviteForGroup(groupId) }
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                        cm?.setPrimaryClip(ClipData.newPlainText("Luogo Invite Key", payload))
-                        viewModel.postToast("Copied invite key to clipboard")
-                        activeInvitePayload = null
-                    }
-                ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Copy Key")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { activeInvitePayload = null }) { Text("Close") }
+            onCopy = { payload ->
+                copyToClipboard(context, payload)
+                viewModel.postToast("Invite code copied")
             }
         )
     }
 }
 
 @Composable
-private fun GroupCard(
-    group: PeerGroup,
-    members: List<PeerLocationState>,
-    onToggleShare: (Boolean) -> Unit,
-    onInviteClick: () -> Unit,
-    onLeaveGroup: () -> Unit,
-    onRemoveMember: (String) -> Unit,
-    onLocatePeer: (PeerLocationState) -> Unit,
-    onRoutePeer: (PeerLocationState) -> Unit
+private fun SharingCard(
+    displayName: String,
+    colorArgb: Long,
+    sharingEnabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("sharing_card"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            InitialsAvatar(name = displayName, colorArgb = colorArgb)
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(displayName, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = if (sharingEnabled) {
+                        "Sharing your location, end to end encrypted"
+                    } else {
+                        "Sharing paused. Nobody can see where you are."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = sharingEnabled,
+                onCheckedChange = onToggle,
+                modifier = Modifier.testTag("sharing_switch")
+            )
+        }
+    }
+}
+
+@Composable
+private fun PeerCard(
+    peer: PeerLocationState,
+    onOpenOnMap: () -> Unit,
+    onRoute: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val nowMs = System.currentTimeMillis()
+    val stale = peer.isStale(nowMs)
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        onClick = onOpenOnMap,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("peer_card_${peer.userId}"),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                InitialsAvatar(name = peer.displayName, colorArgb = peer.colorArgb, size = 40.dp)
+                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(peer.displayName, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        text = "${group.name} (${group.category.label})",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "${members.size + 1} members · E2EE ChaCha20-Poly1305",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = "±${peer.accuracyMeters.toInt()} m · ${peer.sourceSummary}",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onInviteClick) {
-                        Icon(Icons.Default.QrCode, contentDescription = "Generate QR Invite")
-                    }
-                    IconButton(onClick = onLeaveGroup) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Leave Group")
-                    }
-                    Switch(
-                        checked = group.shareMyLocation,
-                        onCheckedChange = onToggleShare
-                    )
-                }
+                FreshnessChip(
+                    label = if (stale) "STALE" else "LIVE",
+                    tone = if (stale) FreshnessTone.STALE else FreshnessTone.LIVE
+                )
             }
 
-            if (members.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-                members.forEach { peer ->
-                    val stale = peer.isStale(nowMs)
-                    val ageSec = ((nowMs - peer.timestampMs) / 1000L).coerceAtLeast(0L)
-                    val ageStr = if (ageSec < 60) "${ageSec}s ago" else "${ageSec / 60}m ago"
+            Spacer(Modifier.height(10.dp))
+            DetailRow("Last update", formatAge(nowMs - peer.timestampMs) + " ago")
+            DetailRow("Activity", "${peer.activityState.label} · ${"%.1f".format(peer.speedMps)} m/s")
+            peer.batteryPercent?.let { DetailRow("Battery", "$it%") }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(peer.colorArgb.toInt() or -0x1000000)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = peer.displayName.take(2).uppercase(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(peer.displayName, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    text = buildString {
-                                        append(if (stale) "STALE ($ageStr)" else "LIVE ($ageStr)")
-                                        append(" · ±${peer.accuracyMeters.toInt()}m")
-                                        append(" · ${peer.activityState.label}")
-                                        peer.batteryPercent?.let { append(" · 🔋$it%") }
-                                    },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (stale) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Row {
-                            IconButton(onClick = { onLocatePeer(peer) }) {
-                                Icon(Icons.Default.LocationOn, contentDescription = "Locate on map")
-                            }
-                            IconButton(onClick = { onRoutePeer(peer) }) {
-                                Icon(Icons.Default.Directions, contentDescription = "Route to person")
-                            }
-                            IconButton(onClick = { onRemoveMember(peer.userId) }) {
-                                Icon(Icons.Default.PersonRemove, contentDescription = "Remove member")
-                            }
-                        }
-                    }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onOpenOnMap, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Groups, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Show on map")
+                }
+                OutlinedButton(onClick = onRoute, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Directions, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Route")
                 }
             }
         }
     }
+}
+
+@Composable
+private fun GroupCard(
+    name: String,
+    category: GroupCategory,
+    memberCount: Int,
+    shareMyLocation: Boolean,
+    onToggleSharing: (Boolean) -> Unit,
+    onInvite: () -> Unit,
+    onLeave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var confirmLeave by remember { mutableStateOf(false) }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = "${category.label} · $memberCount member${if (memberCount == 1) "" else "s"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = shareMyLocation,
+                    onCheckedChange = onToggleSharing,
+                    modifier = Modifier.testTag("group_share_switch_$name")
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onInvite,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("invite_button_$name")
+                ) {
+                    Icon(Icons.Default.QrCode2, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Invite")
+                }
+                OutlinedButton(
+                    onClick = { confirmLeave = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Logout, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Leave")
+                }
+            }
+        }
+    }
+
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text("Leave \"$name\"?") },
+            text = {
+                Text(
+                    "Leaving deletes this device's copy of the group key. Anything already " +
+                        "shared with the group stays shared."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onLeave()
+                    confirmLeave = false
+                }) { Text("Leave") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLeave = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun CreateGroupDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, GroupCategory) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf(GroupCategory.CUSTOM) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New group") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Group name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(LuogoSpacing.medium))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GroupCategory.entries.forEach { candidate ->
+                        FilterChip(
+                            selected = category == candidate,
+                            onClick = { category = candidate },
+                            label = { Text(candidate.label) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onCreate(name.trim(), category) },
+                enabled = name.isNotBlank()
+            ) { Text("Create") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun JoinGroupDialog(
+    onDismiss: () -> Unit,
+    onJoin: (String) -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Join a group") },
+        text = {
+            Column {
+                Text(
+                    "Paste the invite code someone shared with you. It carries the group's " +
+                        "encryption key, so only someone who has it can read the group's location.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(LuogoSpacing.medium))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    label = { Text("Invite code") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("join_group_code_field")
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onJoin(code.trim()) },
+                enabled = code.isNotBlank()
+            ) { Text("Join") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun InviteDialog(
+    groupName: String,
+    payload: String?,
+    onDismiss: () -> Unit,
+    onGenerate: () -> Unit,
+    onCopy: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Invite to $groupName") },
+        text = {
+            Column {
+                if (payload == null) {
+                    Text(
+                        "An invite code contains this group's encryption key. Anyone who has it " +
+                            "can decrypt that group's shared locations, so only send it to people " +
+                            "you trust.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Text("Invite code", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = payload,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.testTag("invite_payload")
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    AssistChip(
+                        onClick = { onCopy(payload) },
+                        label = { Text("Copy") },
+                        leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (payload == null) {
+                Button(onClick = onGenerate) { Text("Create code") }
+            } else {
+                TextButton(onClick = onDismiss) { Text("Done") }
+            }
+        },
+        dismissButton = {
+            if (payload != null) {
+                TextButton(onClick = onGenerate) { Text("Create a new code") }
+            } else {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
+    )
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText("Luogo invite", text))
 }
