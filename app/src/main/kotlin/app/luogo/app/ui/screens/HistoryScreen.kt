@@ -54,7 +54,7 @@ import app.luogo.app.domain.model.LocationHistoryPoint
 import app.luogo.app.ui.components.EmptyState
 import app.luogo.app.ui.components.NoticeCard
 import app.luogo.app.ui.components.NoticeTone
-import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.ScreenScaffold
 import app.luogo.app.ui.components.StatTile
 import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
@@ -108,20 +108,16 @@ fun HistoryScreen(viewModel: LuogoViewModel) {
         if (playbackFraction >= 1f) isPlaying = false
     }
 
+    ScreenScaffold(
+        title = "History",
+        subtitle = if (filtered.isEmpty()) "Nothing recorded yet" else "${filtered.size} recorded point(s)"
+    ) { padding ->
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .testTag("history_screen"),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            bottom = LuogoSpacing.extraLarge
-        )
+        contentPadding = padding
     ) {
-        item {
-            ScreenHeader(
-                title = "History",
-                subtitle = "${filtered.size} recorded point(s)"
-            )
-        }
 
         if (filtered.isEmpty()) {
             item {
@@ -132,6 +128,7 @@ fun HistoryScreen(viewModel: LuogoViewModel) {
                         "the app first records a fix, and it is pruned to your retention window."
                 )
             }
+            item { Spacer(Modifier.height(LuogoSpacing.large)) }
             return@LazyColumn
         }
 
@@ -288,6 +285,7 @@ fun HistoryScreen(viewModel: LuogoViewModel) {
             )
         }
     }
+}
 
     if (confirmDeleteAll) {
         AlertDialog(

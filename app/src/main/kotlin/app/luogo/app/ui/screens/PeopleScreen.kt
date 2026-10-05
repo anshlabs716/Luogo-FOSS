@@ -58,7 +58,7 @@ import app.luogo.app.ui.components.EmptyState
 import app.luogo.app.ui.components.FreshnessChip
 import app.luogo.app.ui.components.FreshnessTone
 import app.luogo.app.ui.components.InitialsAvatar
-import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.ScreenScaffold
 import app.luogo.app.ui.components.SectionHeader
 import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
@@ -84,20 +84,24 @@ fun PeopleScreen(viewModel: LuogoViewModel) {
     var inviteForGroupName by remember { mutableStateOf("") }
     var invitePayload by remember { mutableStateOf<String?>(null) }
 
+    ScreenScaffold(
+        title = "People",
+        subtitle = if (peers.isEmpty()) "No one else yet" else "${peers.size} sharing with you",
+        actions = {
+            IconButton(onClick = { showJoinGroup = true }) {
+                Icon(Icons.Default.Link, contentDescription = "Join a group")
+            }
+            IconButton(onClick = { showCreateGroup = true }, modifier = Modifier.testTag("create_group_button")) {
+                Icon(Icons.Default.Add, contentDescription = "Create a group")
+            }
+        }
+    ) { padding ->
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .testTag("people_screen"),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            bottom = LuogoSpacing.extraLarge
-        )
+        contentPadding = padding
     ) {
-        item {
-            ScreenHeader(
-                title = "People",
-                subtitle = "${peers.size} sharing with you"
-            )
-        }
 
         item {
             SharingCard(
@@ -140,22 +144,7 @@ fun PeopleScreen(viewModel: LuogoViewModel) {
         }
 
         item {
-            SectionHeader("Groups") {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(
-                        onClick = { showJoinGroup = true },
-                        modifier = Modifier.testTag("join_group_button")
-                    ) {
-                        Icon(Icons.Default.Link, contentDescription = "Join a group with an invite code")
-                    }
-                    IconButton(
-                        onClick = { showCreateGroup = true },
-                        modifier = Modifier.testTag("create_group_button")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Create a group")
-                    }
-                }
-            }
+            SectionHeader("Groups")
         }
 
         if (groups.isEmpty()) {
@@ -186,6 +175,7 @@ fun PeopleScreen(viewModel: LuogoViewModel) {
             }
         }
     }
+}
 
     if (showCreateGroup) {
         CreateGroupDialog(

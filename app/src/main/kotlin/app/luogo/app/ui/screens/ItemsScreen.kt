@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,7 +67,7 @@ import app.luogo.app.ui.components.FreshnessChip
 import app.luogo.app.ui.components.FreshnessTone
 import app.luogo.app.ui.components.NoticeCard
 import app.luogo.app.ui.components.NoticeTone
-import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.ScreenScaffold
 import app.luogo.app.ui.components.SectionHeader
 import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
@@ -93,28 +94,24 @@ fun ItemsScreen(
 
     val nowMs = System.currentTimeMillis()
 
+    ScreenScaffold(
+        title = "Items",
+        subtitle = if (items.isEmpty()) "Nothing registered yet" else "${items.size} registered",
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAdd = true },
+                modifier = Modifier.testTag("add_item_button")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Register an item")
+            }
+        }
+    ) { padding ->
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .testTag("items_screen"),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            bottom = LuogoSpacing.extraLarge
-        )
+        contentPadding = padding
     ) {
-        item {
-            ScreenHeader(
-                title = "Items",
-                subtitle = "${items.size} registered",
-                trailing = {
-                    IconButton(
-                        onClick = { showAdd = true },
-                        modifier = Modifier.testTag("add_item_button")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Register an item")
-                    }
-                }
-            )
-        }
 
         // The finding network depends on Bluetooth, so surface the state plainly rather than
         // letting items silently never be found.
@@ -229,6 +226,7 @@ fun ItemsScreen(
                 modifier = Modifier.padding(horizontal = LuogoSpacing.medium, vertical = 8.dp)
             )
         }
+    }
     }
 
     if (showAdd) {

@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,7 +55,7 @@ import app.luogo.app.ui.components.FreshnessChip
 import app.luogo.app.ui.components.FreshnessTone
 import app.luogo.app.ui.components.NoticeCard
 import app.luogo.app.ui.components.NoticeTone
-import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.ScreenScaffold
 import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
 import kotlin.math.roundToInt
@@ -72,29 +73,25 @@ fun PlacesScreen(viewModel: LuogoViewModel) {
     var showAdd by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<SavedPlace?>(null) }
 
+    ScreenScaffold(
+        title = "Places",
+        subtitle = if (places.isEmpty()) {
+            "No geofences yet"
+        } else {
+            "${places.count { it.currentlyInside }} of ${places.size} active now"
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAdd = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Add a saved place")
+            }
+        }
+    ) { padding ->
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .testTag("places_screen"),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            bottom = LuogoSpacing.extraLarge
-        )
+        contentPadding = padding
     ) {
-        item {
-            ScreenHeader(
-                title = "Places",
-                subtitle = if (places.isEmpty()) {
-                    "No geofences yet"
-                } else {
-                    "${places.count { it.currentlyInside }} of ${places.size} geofences active"
-                },
-                trailing = {
-                    IconButton(onClick = { showAdd = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add a saved place")
-                    }
-                }
-            )
-        }
 
         if (myFix == null) {
             item {
@@ -127,6 +124,7 @@ fun PlacesScreen(viewModel: LuogoViewModel) {
             }
         }
     }
+}
 
     if (showAdd) {
         AddPlaceDialog(

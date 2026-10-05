@@ -18,6 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +43,55 @@ import app.luogo.app.ui.theme.LuogoSpacing
  * consistent instead of drifting per screen.
  */
 
+/**
+ * Scroll-aware large title for a screen.
+ *
+ * A static bold `Text` at the top of every list is the most template-like thing an Android
+ * app can do. A large top app bar gives the title real presence while the screen is at rest
+ * and collapses to a compact bar once the user starts scrolling, which is the behaviour
+ * people expect from a modern Android app.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScreenScaffold(
+    title: String,
+    subtitle: String? = null,
+    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    content: @Composable (PaddingValues) -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(title, maxLines = 1)
+                        if (subtitle != null) {
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                },
+                actions = actions,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        },
+        floatingActionButton = floatingActionButton,
+        bottomBar = bottomBar,
+        containerColor = MaterialTheme.colorScheme.background,
+        content = content
+    )
+}
+
+/** Simple compact header for use inside a bottom sheet or a dialog. */
 @Composable
 fun ScreenHeader(
     title: String,

@@ -50,7 +50,7 @@ import app.luogo.app.domain.model.NetworkConfig
 import app.luogo.app.ui.components.DetailRow
 import app.luogo.app.ui.components.NoticeCard
 import app.luogo.app.ui.components.NoticeTone
-import app.luogo.app.ui.components.ScreenHeader
+import app.luogo.app.ui.components.ScreenScaffold
 import app.luogo.app.ui.theme.LuogoSpacing
 import app.luogo.app.ui.viewmodel.LuogoViewModel
 
@@ -80,14 +80,15 @@ fun SettingsScreen(
     var socksPort by remember(networkConfig) { mutableStateOf(networkConfig.socks5Port.toString()) }
     var satelliteInput by remember(satelliteUrl) { mutableStateOf(satelliteUrl) }
 
+    ScreenScaffold(title = "Settings", subtitle = "Luogo-FOSS ${BuildConfig.VERSION_NAME}") { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(padding)
             .verticalScroll(rememberScrollState())
             .testTag("settings_screen"),
         verticalArrangement = Arrangement.spacedBy(LuogoSpacing.small)
     ) {
-        ScreenHeader(title = "Settings")
 
         // ------------------------------------------------------------ location
         SettingsSection("Location", Icons.Default.MyLocation) {
@@ -360,6 +361,7 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(LuogoSpacing.extraLarge))
+    }
     }
 }
 
