@@ -123,8 +123,10 @@
             android:label="@string/car_app_name">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
+                <!-- POI only. The IOT category is for IoT device discovery templates and
+                     Android Auto rejects the host at launch when it is paired with a
+                     navigation/place-list service. -->
                 <category android:name="androidx.car.app.category.POI" />
-                <category android:name="androidx.car.app.category.IOT" />
             </intent-filter>
         </service>
 

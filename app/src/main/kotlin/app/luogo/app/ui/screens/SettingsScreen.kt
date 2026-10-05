@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
@@ -109,11 +110,41 @@ fun SettingsScreen(
             DetailRow("Map style", mapStyle.title)
             DetailRow("Attribution", mapStyle.attribution)
             for (option in MapStyleOption.entries) {
-                TextButton(
+                val selected = option == mapStyle
+                Card(
                     onClick = { viewModel.setMapStyle(option) },
-                    modifier = Modifier.testTag("settings_style_${option.id}")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .testTag("settings_style_${option.id}"),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        }
+                    )
                 ) {
-                    Text(if (option == mapStyle) "• ${option.title}" else option.title)
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(option.title, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                option.subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (selected) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
 

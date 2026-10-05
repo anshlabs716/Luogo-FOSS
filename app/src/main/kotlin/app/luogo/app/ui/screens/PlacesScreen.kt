@@ -205,12 +205,19 @@ private fun PlaceCard(
 
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Alert on arrival and departure",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.weight(1f)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Geofence active", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        text = "Turn off to stop arrival and departure detection for this place.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = place.enabled,
+                    onCheckedChange = onToggle,
+                    modifier = Modifier.testTag("geofence_switch_${place.id}")
                 )
-                Switch(checked = place.enabled, onCheckedChange = onToggle)
             }
 
             Spacer(Modifier.height(8.dp))

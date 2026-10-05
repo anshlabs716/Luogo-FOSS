@@ -83,20 +83,28 @@ object AutoSnapshot {
     var state: State = State()
         private set
 
-    private var started = false
+    private var scope: CoroutineScope? = null
 
+    /**
+     * Safe to call repeatedly.
+     *
+     * A car host can start the process cold, before LuogoApplication has finished wiring the
+     * repository. Setting a "started" flag before that check would mean the collectors never
+     * attach and the template stays empty for the rest of the session, so the collectors are
+     * re-attempted instead.
+     */
     fun start(service: CarAppService) {
-        if (started) return
-        started = true
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        if (scope != null) return
         val repository = runCatching { LuogoApplication.getRepository(service) }.getOrNull() ?: return
+        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        scope = newScope
 
-        scope.launch {
+        newScope.launch {
             repository.hardwareLocationManager.fusedLocation.collectLatest { fix ->
                 rebuild(repository, fix?.latitude, fix?.longitude, fix != null)
             }
         }
-        scope.launch {
+        newScope.launch {
             combineLatest(
                 repository.peersFlow,
                 repository.placesFlow,

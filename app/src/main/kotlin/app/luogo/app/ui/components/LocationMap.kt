@@ -76,6 +76,8 @@ fun LocationMap(
     val mapTap by rememberUpdatedState(onMapTapped)
     val userGesture by rememberUpdatedState(onUserGesture)
 
+    val holder = remember { MapHolder() }
+
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
@@ -85,9 +87,10 @@ fun LocationMap(
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 onCreate(null)
-                activeMapView = this
+                holder.view = this
                 getMapAsync { map ->
                     configureMap(
+                        holder = holder,
                         map = map,
                         style = mapStyle,
                         customSatelliteUrl = customSatelliteUrl,
@@ -109,29 +112,30 @@ fun LocationMap(
         },
         update = { view ->
             view.getMapAsync { map ->
-                applyStyleIfNeeded(map, mapStyle, customSatelliteUrl)
+                applyStyleIfNeeded(holder, map, mapStyle, customSatelliteUrl)
                 pushData(map, myLocation, myColorArgb, peers, items, places, route, nowMs)
                 applyCamera(map, centerLat, centerLon, zoom, bearingDegrees, followMyLocation, myLocation != null)
             }
         }
     )
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, holder) {
         val observer = LifecycleEventObserver { _, event ->
+            val mapView = holder.view
             when (event) {
-                Lifecycle.Event.ON_START -> activeMapView?.onStart()
-                Lifecycle.Event.ON_RESUME -> activeMapView?.onResume()
-                Lifecycle.Event.ON_PAUSE -> activeMapView?.onPause()
-                Lifecycle.Event.ON_STOP -> activeMapView?.onStop()
+                Lifecycle.Event.ON_START -> mapView?.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView?.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView?.onPause()
+                Lifecycle.Event.ON_STOP -> mapView?.onStop()
                 else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            activeMapView?.onDestroy()
-            activeMapView = null
-            appliedStyleKey = null
+            holder.view?.onDestroy()
+            holder.view = null
+            holder.appliedStyleKey = null
         }
     }
 }
@@ -142,17 +146,19 @@ private const val PLACE_ID_PREFIX = "place:"
 private const val RESERVED_ME_ID = "__me__"
 
 /**
- * Holds the live MapView so lifecycle callbacks can reach it.
+ * Per-composition holder for the live MapView and the style currently applied.
  *
- * A composable-local `remember` cannot be read from a DisposableEffect that outlives the
- * AndroidView factory, so this is module state. It is cleared in onDispose, so it does not
- * outlive the screen.
+ * These are held per instance rather than in module-level vars: a module-level var is shared
+ * across every map and outlives a configuration change, so onDispose could call onDestroy on
+ * a MapView that a freshly composed map is already using, which crashes on rotation.
  */
-private var activeMapView: MapView? = null
-
-private var appliedStyleKey: String? = null
+private class MapHolder {
+    var view: MapView? = null
+    var appliedStyleKey: String? = null
+}
 
 private fun configureMap(
+    holder: MapHolder,
     map: MapLibreMap,
     style: MapStyleOption,
     customSatelliteUrl: String,
@@ -183,8 +189,8 @@ private fun configureMap(
             onCameraMoved()
         }
     }
-    appliedStyleKey = null
-    applyStyleIfNeeded(map, style, customSatelliteUrl)
+    holder.appliedStyleKey = null
+    applyStyleIfNeeded(holder, map, style, customSatelliteUrl)
 }
 
 /**
@@ -213,10 +219,15 @@ private fun featureIdAt(map: MapLibreMap, tapped: LatLng): String? {
     return null
 }
 
-private fun applyStyleIfNeeded(map: MapLibreMap, style: MapStyleOption, customSatelliteUrl: String) {
+private fun applyStyleIfNeeded(
+    holder: MapHolder,
+    map: MapLibreMap,
+    style: MapStyleOption,
+    customSatelliteUrl: String
+) {
     val key = "${style.id}|$customSatelliteUrl"
-    if (appliedStyleKey == key) return
-    appliedStyleKey = key
+    if (holder.appliedStyleKey == key) return
+    holder.appliedStyleKey = key
     map.setStyle(Style.Builder().fromJson(MapStyleFactory.build(style, customSatelliteUrl)))
 }
 
