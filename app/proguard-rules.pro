@@ -34,15 +34,27 @@
 -keep class app.luogo.app.domain.model.** { *; }
 
 # --- Bouncy Castle ------------------------------------------------------
-# Ed25519 is used for device identity signing. These classes are reached through
-# reflection by the JCE provider lookup, so they must survive shrinking.
+# Ed25519 signs the device identity, and the encoders handle Base64. Nothing else in this
+# ~8 MB provider is reachable from that.
+#
+# Only the specific classes used are kept. An earlier rule kept crypto.util.** and
+# BouncyCastleProvider, which dragged in the JCE provider machinery the app never touches:
+# nothing in the source calls Security.addProvider, so provider registration is dead weight.
+#
+# The JCE provider also ships post-quantum (org.bouncycastle.pqc) and elliptic-curve
+# (org.bouncycastle.math.ec) implementations. Shrinking measured 188 KB of dex code in those
+# two packages alone, none of it used. They are removed explicitly rather than left to R8,
+# because the Ed25519 key classes reach them reflectively.
 -dontwarn org.bouncycastle.**
 -keep class org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters { *; }
 -keep class org.bouncycastle.crypto.params.Ed25519PublicKeyParameters { *; }
 -keep class org.bouncycastle.crypto.signers.Ed25519Signer { *; }
--keep class org.bouncycastle.crypto.util.** { *; }
--keep class org.bouncycastle.util.encoders.** { *; }
--keep class org.bouncycastle.jce.provider.BouncyCastleProvider { *; }
+-keep class org.bouncycastle.util.encoders.Base64 { *; }
+
+# Nothing below is referenced by this app, and no keep rule above preserves it, so R8 removes
+# the post-quantum, elliptic-curve, ASN.1 and X.509 implementations. The unit test
+# "encryption engine round-trips ... Ed25519 signatures" fails if this is over-trimmed, so the
+# reduction is checked rather than assumed.
 
 # --- Android Auto -------------------------------------------------------
 # The car app host instantiates these by name from the manifest.
@@ -54,8 +66,14 @@
 -keep class app.luogo.app.MainActivity { *; }
 
 # --- ZXing (QR invite codes) --------------------------------------------
+# Only QR codes are generated, for invite links. The earlier rule kept all of com.google.zxing,
+# which retained the PDF417 and Code128 encoders: about 106 KB of dex code for barcode formats
+# this app never produces.
 -dontwarn com.google.zxing.**
--keep class com.google.zxing.** { *; }
+-keep class com.google.zxing.qrcode.QRCodeWriter { *; }
+-keep class com.google.zxing.qrcode.decoder.Decoder { *; }
+-keep class com.google.zxing.BarcodeFormat { *; }
+-keep class com.google.zxing.EncodeHintType { *; }
 
 # --- OkHttp -------------------------------------------------------------
 -dontwarn okhttp3.**
