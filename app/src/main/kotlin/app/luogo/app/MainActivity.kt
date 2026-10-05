@@ -210,7 +210,9 @@ fun LuogoMainApp(
         val expanded = maxWidth >= EXPANDED_WIDTH_BREAKPOINT
 
         Scaffold(
-            contentWindowInsets = WindowInsets.safeDrawing,
+            // No global inset here. The map must reach the screen edges, so each screen
+            // applies its own insets to the controls it floats above the map.
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             bottomBar = {
                 if (!expanded) {

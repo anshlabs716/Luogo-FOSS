@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -80,6 +81,7 @@ import app.luogo.app.domain.model.RoutingMode
 import app.luogo.app.ui.components.DetailRow
 import app.luogo.app.ui.components.LocationMap
 import app.luogo.app.ui.theme.LuogoSpacing
+import app.luogo.app.ui.theme.MapChrome
 import app.luogo.app.ui.viewmodel.LuogoViewModel
 import kotlinx.coroutines.delay
 
@@ -243,6 +245,7 @@ fun MapScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(end = LuogoSpacing.medium, bottom = LuogoSpacing.large),
             verticalArrangement = Arrangement.spacedBy(LuogoSpacing.small),
             horizontalAlignment = Alignment.End
@@ -280,6 +283,7 @@ fun MapScreen(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(start = LuogoSpacing.medium, bottom = LuogoSpacing.large),
             horizontalArrangement = Arrangement.spacedBy(LuogoSpacing.xSmall)
         ) {
@@ -322,7 +326,8 @@ fun MapScreen(
                 onDismiss = viewModel::clearActiveRoute,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = LuogoSpacing.extraLarge)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(bottom = 112.dp)
             )
         }
     }
@@ -402,21 +407,21 @@ private fun FloatingPill(
     emphasised: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Map chrome is light in both themes. A dark circle on a map reads as a hole in it.
     val background = when {
-        emphasised -> MaterialTheme.colorScheme.primary
-        active -> MaterialTheme.colorScheme.secondaryContainer
-        else -> MaterialTheme.colorScheme.surface
+        emphasised -> MapChrome.emphasisedContainer
+        active -> MapChrome.activeContainer
+        else -> MapChrome.container
     }
     val tint = when {
-        emphasised -> MaterialTheme.colorScheme.onPrimary
-        active -> MaterialTheme.colorScheme.onSecondaryContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        emphasised -> MapChrome.onEmphasisedContainer
+        active -> MapChrome.activeOnContainer
+        else -> MapChrome.onContainer
     }
     Surface(
         shape = CircleShape,
         color = background,
-        tonalElevation = if (emphasised) 6.dp else 3.dp,
-        shadowElevation = if (emphasised) 6.dp else 2.dp,
+        shadowElevation = if (emphasised) 8.dp else 4.dp,
         modifier = modifier.size(48.dp)
     ) {
         Box(
@@ -447,9 +452,8 @@ private fun LocationStatusPill(
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp,
-        shadowElevation = 2.dp,
+        color = MapChrome.container,
+        shadowElevation = 4.dp,
         modifier = modifier.heightIn(min = 48.dp)
     ) {
         Column(
@@ -487,7 +491,7 @@ private fun LocationStatusPill(
                         activityLabel?.let { append(" · $it") }
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MapChrome.onContainer
                 )
             }
         }
@@ -535,9 +539,8 @@ private fun SearchField(
 
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 4.dp,
-        shadowElevation = 3.dp,
+        color = MapChrome.container,
+        shadowElevation = 6.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
@@ -832,9 +835,8 @@ private fun RouteSummaryBar(
 ) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 6.dp,
-        shadowElevation = 6.dp,
+        color = MapChrome.container,
+        shadowElevation = 8.dp,
         modifier = modifier.padding(horizontal = LuogoSpacing.medium)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {

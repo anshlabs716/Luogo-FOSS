@@ -41,6 +41,23 @@ val LuogoSpacing = Spacing()
 
 val LocalSpacing = staticCompositionLocalOf { LuogoSpacing }
 
+/**
+ * Colours for controls that float above the map.
+ *
+ * Deliberately theme-independent and light in both light and dark mode. A dark circle on a
+ * map reads as a hole punched in it rather than as a button, so map chrome stays
+ * high-contrast against whatever basemap or satellite imagery is underneath.
+ */
+object MapChrome {
+    val container = Color(0xFFF7F9F9)
+    val onContainer = Color(0xFF1A2226)
+    val emphasisedContainer = Color(0xFF1A88E5)
+    val onEmphasisedContainer = Color(0xFFFFFFFF)
+    val activeContainer = Color(0xFFDCEBF7)
+    val activeOnContainer = Color(0xFF0D4E7F)
+    val scrim = Color(0x33000000)
+}
+
 private val LuogoDarkColors = darkColorScheme(
     primary = Color(0xFF7FE3D4),
     onPrimary = Color(0xFF00382F),
@@ -58,17 +75,26 @@ private val LuogoDarkColors = darkColorScheme(
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF0B0F12),
-    onBackground = Color(0xFFE1E3E5),
-    surface = Color(0xFF0B0F12),
-    onSurface = Color(0xFFE1E3E5),
-    surfaceVariant = Color(0xFF3F4849),
-    onSurfaceVariant = Color(0xFFBFC8CA),
-    surfaceContainer = Color(0xFF1B2023),
-    surfaceContainerHigh = Color(0xFF252A2E),
-    surfaceContainerHighest = Color(0xFF303538),
-    outline = Color(0xFF899294),
-    outlineVariant = Color(0xFF3F4849)
+    // Tonal ladder. Each step is visibly distinct so cards read as raised surfaces rather
+    // than flat noise: background is the floor and the container tints climb from there.
+    background = Color(0xFF070B0E),
+    onBackground = Color(0xFFE3E7EA),
+    surface = Color(0xFF0F1519),
+    onSurface = Color(0xFFE3E7EA),
+    surfaceDim = Color(0xFF070B0E),
+    surfaceBright = Color(0xFF343E44),
+    surfaceVariant = Color(0xFF2A343A),
+    onSurfaceVariant = Color(0xFFB6C2C7),
+    surfaceContainerLowest = Color(0xFF05080A),
+    surfaceContainerLow = Color(0xFF141B20),
+    surfaceContainer = Color(0xFF1B2429),
+    surfaceContainerHigh = Color(0xFF253037),
+    surfaceContainerHighest = Color(0xFF303C44),
+    surfaceTint = Color(0xFF7FE3D4),
+    inverseSurface = Color(0xFFE3E7EA),
+    inverseOnSurface = Color(0xFF121A1E),
+    outline = Color(0xFF8B979D),
+    outlineVariant = Color(0xFF2C363C)
 )
 
 private val LuogoLightColors = lightColorScheme(
@@ -88,17 +114,24 @@ private val LuogoLightColors = lightColorScheme(
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-    background = Color(0xFFF5FAF8),
-    onBackground = Color(0xFF171D1D),
-    surface = Color(0xFFF5FAF8),
-    onSurface = Color(0xFF171D1D),
-    surfaceVariant = Color(0xFFDBE5E2),
-    onSurfaceVariant = Color(0xFF3F4947),
-    surfaceContainer = Color(0xFFE9EFEC),
-    surfaceContainerHigh = Color(0xFFE3E9E7),
-    surfaceContainerHighest = Color(0xFFDEE4E1),
-    outline = Color(0xFF6F7977),
-    outlineVariant = Color(0xFFBFC8C5)
+    background = Color(0xFFEEF3F1),
+    onBackground = Color(0xFF141A1A),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF141A1A),
+    surfaceDim = Color(0xFFDCE3E1),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceVariant = Color(0xFFE1E9E6),
+    onSurfaceVariant = Color(0xFF3C4745),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF7FAF9),
+    surfaceContainer = Color(0xFFFFFFFF),
+    surfaceContainerHigh = Color(0xFFEAF0EE),
+    surfaceContainerHighest = Color(0xFFE1E9E6),
+    surfaceTint = Color(0xFF00695C),
+    inverseSurface = Color(0xFF2B3231),
+    inverseOnSurface = Color(0xFFEDF2F0),
+    outline = Color(0xFF697573),
+    outlineVariant = Color(0xFFBFCBC8)
 )
 
 /**

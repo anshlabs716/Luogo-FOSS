@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -41,13 +42,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.luogo.app.domain.model.ItemPresenceStatus
 import app.luogo.app.domain.model.ItemType
 import app.luogo.app.domain.model.RegisteredItem
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Laptop
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.PedalBike
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Watch
+import app.luogo.app.ui.components.CategoryIconTile
 import app.luogo.app.ui.components.DetailRow
 import app.luogo.app.ui.components.EmptyState
 import app.luogo.app.ui.components.FreshnessChip
@@ -325,6 +337,13 @@ private fun ItemCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                CategoryIconTile(
+                    icon = item.itemType.icon(),
+                    contentDescription = item.itemType.label,
+                    tint = item.itemType.tint(),
+                    container = item.itemType.tint().copy(alpha = 0.16f)
+                )
+                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     // The friendly name is the identity. The rotating identifier never appears.
                     Text(item.friendlyName, style = MaterialTheme.typography.titleMedium)
@@ -478,4 +497,28 @@ private fun RenameItemDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+/** Icon per item category so a list of items is scannable at a glance. */
+private fun ItemType.icon(): ImageVector = when (this) {
+    ItemType.EARBUDS -> Icons.Default.Headphones
+    ItemType.PHONE -> Icons.Default.Smartphone
+    ItemType.WATCH -> Icons.Default.Watch
+    ItemType.LAPTOP -> Icons.Default.Laptop
+    ItemType.KEYS -> Icons.Default.VpnKey
+    ItemType.BAG -> Icons.Default.Work
+    ItemType.BIKE -> Icons.Default.PedalBike
+    ItemType.CUSTOM_DEVICE -> Icons.Default.Memory
+    ItemType.CUSTOM_ITEM -> Icons.Default.Category
+}
+
+private fun ItemType.tint(): Color = when (this) {
+    ItemType.EARBUDS -> Color(0xFF7C4DFF)
+    ItemType.PHONE -> Color(0xFF1A88E5)
+    ItemType.WATCH -> Color(0xFF00A878)
+    ItemType.LAPTOP -> Color(0xFF5C6BC0)
+    ItemType.KEYS -> Color(0xFFF9A825)
+    ItemType.BAG -> Color(0xFF00897B)
+    ItemType.BIKE -> Color(0xFFEF5350)
+    ItemType.CUSTOM_DEVICE -> Color(0xFF546E7A)
+    ItemType.CUSTOM_ITEM -> Color(0xFF8D6E63)
 }

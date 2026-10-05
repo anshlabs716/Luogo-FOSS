@@ -1,6 +1,7 @@
 package app.luogo.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -165,20 +166,34 @@ fun InitialsAvatar(
     name: String,
     colorArgb: Long,
     modifier: Modifier = Modifier,
-    size: androidx.compose.ui.unit.Dp = 44.dp
+    size: androidx.compose.ui.unit.Dp = 44.dp,
+    ringColor: Color? = null
 ) {
     Box(
         modifier = modifier
-            .size(size)
-            .background(Color(colorArgb.toInt()), CircleShape),
+            .size(if (ringColor != null) size + 8.dp else size)
+            .then(
+                if (ringColor != null) {
+                    Modifier.border(3.dp, ringColor, CircleShape)
+                } else {
+                    Modifier
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = name.trim().take(1).uppercase().ifEmpty { "?" },
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            modifier = Modifier
+                .size(size)
+                .background(Color(colorArgb.toInt()), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = name.trim().take(1).uppercase().ifEmpty { "?" },
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
@@ -221,6 +236,31 @@ fun FreshnessChip(
 }
 
 enum class FreshnessTone { LIVE, RECENT, STALE, UNKNOWN }
+
+/**
+ * Rounded icon tile used to give list rows a visual identity.
+ *
+ * A list of item cards with nothing but text reads as a debug dump; a tinted icon per
+ * category is what makes a list scannable.
+ */
+@Composable
+fun CategoryIconTile(
+    icon: ImageVector,
+    contentDescription: String?,
+    tint: Color,
+    container: Color,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 48.dp
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .background(container, MaterialTheme.shapes.large),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = contentDescription, tint = tint)
+    }
+}
 
 /** Label/value row used throughout the detail sheets. */
 @Composable

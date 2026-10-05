@@ -46,6 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -285,7 +286,17 @@ private fun PeerCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                InitialsAvatar(name = peer.displayName, colorArgb = peer.colorArgb, size = 40.dp)
+                InitialsAvatar(
+                    name = peer.displayName,
+                    colorArgb = peer.colorArgb,
+                    size = 40.dp,
+                    // Green ring reads as live, grey as stale, before any text is parsed.
+                    ringColor = if (stale) {
+                        MaterialTheme.colorScheme.outline
+                    } else {
+                        Color(0xFF00C853)
+                    }
+                )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(peer.displayName, style = MaterialTheme.typography.titleSmall)
