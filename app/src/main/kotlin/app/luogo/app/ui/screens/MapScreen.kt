@@ -30,8 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Layers
@@ -121,7 +119,6 @@ fun MapScreen(
 
     var searchOpen by remember { mutableStateOf(false) }
     var showStyleSheet by remember { mutableStateOf(false) }
-    var showOfflineSheet by remember { mutableStateOf(false) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     // One shared clock for every relative-time label, so they all tick together instead of
@@ -251,13 +248,6 @@ fun MapScreen(
             horizontalAlignment = Alignment.End
         ) {
             FloatingPill(
-                onClick = { showOfflineSheet = true },
-                icon = Icons.Default.CloudDownload,
-                contentDescription = "Offline maps",
-                modifier = Modifier.testTag("offline_maps_button")
-            )
-
-            FloatingPill(
                 onClick = {
                     viewModel.panAndZoomCamera(center.first, center.second, zoom, disableFollow = false)
                     viewModel.setBearing(0f)
@@ -369,29 +359,10 @@ fun MapScreen(
                     viewModel.setMapStyle(it)
                     showStyleSheet = false
                 },
-                onManageOffline = {
-                    showStyleSheet = false
-                    showOfflineSheet = true
-                }
             )
         }
     }
 
-    if (showOfflineSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showOfflineSheet = false },
-            sheetState = rememberModalBottomSheetState()
-        ) {
-            OfflineMapsSheet(
-                regions = offlineRegions,
-                onDownload = { name ->
-                    viewModel.downloadOfflineRegion(name)
-                },
-                onPauseResume = viewModel::pauseOrResumeOfflineRegion,
-                onDelete = viewModel::deleteOfflineRegion
-            )
-        }
-    }
 }
 
 private const val CLOCK_TICK_MS = 1_000L
@@ -627,8 +598,7 @@ private fun SearchRow(title: String, subtitle: String, onClick: () -> Unit) {
 private fun MapStyleSheet(
     current: MapStyleOption,
     satelliteConfigured: Boolean,
-    onSelect: (MapStyleOption) -> Unit,
-    onManageOffline: () -> Unit
+    onSelect: (MapStyleOption) -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
         Text("Map style", style = MaterialTheme.typography.headlineSmall)
@@ -691,132 +661,6 @@ private fun MapStyleSheet(
             )
         }
 
-        TextButton(onClick = onManageOffline, modifier = Modifier.padding(top = 8.dp)) {
-            Icon(Icons.Default.CloudDownload, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Manage offline maps")
-        }
-    }
-}
-
-@Composable
-private fun OfflineMapsSheet(
-    regions: List<app.luogo.app.domain.model.OfflineMapRegion>,
-    onDownload: (String) -> Unit,
-    onPauseResume: (app.luogo.app.domain.model.OfflineMapRegion) -> Unit,
-    onDelete: (String) -> Unit
-) {
-    var regionName by remember { mutableStateOf("Current map area") }
-    var confirmDelete by remember { mutableStateOf<String?>(null) }
-
-    Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-        Text("Offline maps", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = "Downloaded tiles render with no connection.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(12.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            TextField(
-                value = regionName,
-                onValueChange = { regionName = it },
-                label = { Text("Region name") },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(
-                onClick = { onDownload(regionName.ifBlank { "Current map area" }) },
-                modifier = Modifier.testTag("download_offline_region_button")
-            ) {
-                Text("Download")
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        if (regions.isEmpty()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CloudOff, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("No regions downloaded yet.", style = MaterialTheme.typography.bodyMedium)
-            }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(regions, key = { it.id }) { region ->
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(region.name, style = MaterialTheme.typography.titleSmall)
-                                    Text(
-                                        "${region.status.label} · ${region.downloadedTiles}/${region.totalTiles} tiles",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                if (region.status == OfflineRegionStatus.DOWNLOADING ||
-                                    region.status == OfflineRegionStatus.PAUSED
-                                ) {
-                                    TextButton(onClick = { onPauseResume(region) }) {
-                                        Text(if (region.status == OfflineRegionStatus.PAUSED) "Resume" else "Pause")
-                                    }
-                                }
-                                TextButton(
-                                    onClick = { confirmDelete = region.id },
-                                    modifier = Modifier.testTag("delete_region_${region.id}")
-                                ) {
-                                    Text("Delete")
-                                }
-                            }
-                            if (region.progressPercent < 100) {
-                                Spacer(Modifier.height(6.dp))
-                                LinearProgressIndicator(
-                                    progress = { region.progressPercent / 100f },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        confirmDelete?.let { id ->
-            Spacer(Modifier.height(8.dp))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Delete this region and its downloaded tiles?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { confirmDelete = null }) { Text("Cancel") }
-                    TextButton(
-                        onClick = {
-                            onDelete(id)
-                            confirmDelete = null
-                        }
-                    ) { Text("Delete") }
-                }
-            }
-        }
     }
 }
 

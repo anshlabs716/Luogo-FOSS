@@ -144,12 +144,25 @@ class LuogoRepository(
         relayClient.inboundCiphertextFrames.collect { frame ->
             // Authorisation is enforced by the relay; here we only reject what we cannot
             // authenticate, and never apply a fix we failed to verify.
-            val plaintext = groupKeysKnown().firstNotNullOfOrNull { (groupId, key) ->
-                cryptoEngine.decryptWithKey(key, runCatching {
-                    CryptoEngine.decodeBase64Url(frame.ciphertext)
-                }.getOrNull() ?: return@firstNotNullOfOrNull null, aad = groupId)
+            val ciphertext = runCatching {
+                CryptoEngine.decodeBase64Url(frame.ciphertext)
+            }.getOrNull() ?: return@collect
+
+            // The group id is carried in the frame, so the correct key is tried first and only
+            // that group is credited with the payload. Falling back to "try every key" would
+            // let a peer be attributed to the wrong group.
+            val known = groupKeysKnown()
+            val ordered = buildList {
+                frame.groupId?.let { gid -> known.firstOrNull { it.first == gid } }?.let { add(it) }
+                addAll(known.filter { it.first != frame.groupId })
+            }
+
+            val decrypted = ordered.firstNotNullOfOrNull { (groupId, key) ->
+                cryptoEngine.decryptWithKey(key, ciphertext, aad = groupId)
+                    ?.let { plaintext -> groupId to plaintext }
             } ?: return@collect
-            applyInboundPayload(groupId = null, plaintext = plaintext)
+
+            applyInboundPayload(groupId = decrypted.first, plaintext = decrypted.second)
         }
     }
 
@@ -220,7 +233,10 @@ class LuogoRepository(
         }.getOrDefault(app.luogo.app.domain.model.ActivityState.UNKNOWN)
 
         val state = PeerLocationState(
-            userId = name,
+            // Keyed on the sender's stable id, not their display name, so renaming does not
+            // fork someone into two entries.
+            userId = Regex("\"id\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.getOrNull(1)
+                ?.takeIf { it.isNotBlank() } ?: name,
             groupId = groupId.orEmpty(),
             displayName = name,
             colorArgb = color,
@@ -517,28 +533,39 @@ class LuogoRepository(
      * timeline is monotonic. Successful rows are deleted rather than flagged, so the queue
      * cannot grow without bound.
      */
+    /**
+     * Uploads queued sightings oldest-first, preserving order so the owner's last-seen
+     * timeline stays monotonic.
+     *
+     * Only rows the relay explicitly confirmed are deleted. Anything else keeps its retry
+     * count and waits for the next attempt, so a dropped connection mid-upload cannot
+     * discard sightings the server never received.
+     */
     suspend fun flushOfflineQueues(): Int = withContext(Dispatchers.IO) {
         val pending = dao.getPendingSightings(UPLOAD_BATCH_SIZE)
         if (pending.isEmpty()) return@withContext 0
-        val reports = pending.map { it.toDomain() }
-        val uploaded = relayClient.flushPending(reports)
-        for (entity in pending) {
-            if (entity.reportId in reports.filter { r -> r.isUploaded }.map { it.reportId }) continue
-        }
+
+        val accepted = relayClient.flushPending(pending.map { it.toDomain() })
+
         var deleted = 0
-        for (report in reports) {
-            if (report.reportId.isBlank()) continue
-            // Re-query so we only delete what the relay actually accepted.
-            val accepted = uploaded > 0
-            if (accepted) {
-                dao.deletePendingSighting(report.reportId)
+        for (entity in pending) {
+            if (entity.reportId in accepted) {
+                dao.deletePendingSighting(entity.reportId)
                 deleted++
             } else {
-                dao.markSightingAttempt(report.reportId, System.currentTimeMillis())
+                // Keep it queued and count the attempt so a permanently failing report
+                // eventually becomes visible instead of retrying forever.
+                dao.markSightingAttempt(entity.reportId, System.currentTimeMillis())
             }
         }
-        _sightingReports.value = emptyList()
-        appendLog("Uploaded $deleted queued sighting(s)")
+
+        _sightingReports.value = dao.countPendingSightings().let { count ->
+            if (count == 0) emptyList() else _sightingReports.value
+        }
+        appendLog(
+            if (pending.isEmpty()) "Nothing queued" else
+                "Uploaded $deleted of ${pending.size} queued sighting(s)"
+        )
         deleted
     }
 

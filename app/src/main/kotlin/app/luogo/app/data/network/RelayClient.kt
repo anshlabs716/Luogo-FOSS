@@ -403,11 +403,17 @@ class RelayClient(
 
     // -------------------------------------------------------- sighting upload
 
-    /** Uploads queued sightings. Returns how many were accepted. */
-    suspend fun flushPending(reports: List<CrowdsourcedSightingReport>): Int =
+    /**
+     * Uploads queued sightings, returning the ids the relay actually accepted.
+     *
+     * Returns the specific ids rather than a count. A count cannot distinguish "all 50
+     * uploaded" from "1 of 50 uploaded", and the caller must only delete the rows the relay
+     * confirmed, or a partial upload silently destroys the rest of the queue.
+     */
+    suspend fun flushPending(reports: List<CrowdsourcedSightingReport>): Set<String> =
         withContext(Dispatchers.IO) {
-            val token = authToken ?: return@withContext 0
-            var uploaded = 0
+            val token = authToken ?: return@withContext emptySet()
+            val accepted = LinkedHashSet<String>()
             for (report in reports) {
                 if (report.isUploaded) continue
                 val body = buildString {
@@ -431,9 +437,9 @@ class RelayClient(
                             .build()
                     ).execute().use { it.isSuccessful }
                 }.getOrDefault(false)
-                if (ok) uploaded++
+                if (ok) accepted.add(report.reportId)
             }
-            uploaded
+            accepted
         }
 
     /** Human-readable summary of where traffic is going. Never guesses. */
@@ -455,16 +461,18 @@ class RelayClient(
     private suspend fun decodeInboundFrame(text: String) {
         val ciphertext = Regex("\"ciphertext\"\\s*:\\s*\"([^\"]+)\"").find(text)?.groupValues?.getOrNull(1)
             ?: return
+        val groupId = Regex("\"groupId\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.getOrNull(1)
         val senderId = Regex("\"senderId\"\\s*:\\s*\"([^\"]+)\"").find(text)?.groupValues?.getOrNull(1)
             ?: return
         val sequence = Regex("\"seq\"\\s*:\\s*(\\d+)").find(text)?.groupValues?.getOrNull(1)?.toLongOrNull()
             ?: return
-        inboundCiphertext.tryEmit(InboundCiphertext(senderId, sequence, ciphertext))
+        inboundCiphertext.tryEmit(InboundCiphertext(senderId, sequence, groupId, ciphertext))
     }
 
     data class InboundCiphertext(
         val senderId: String,
         val sequence: Long,
+        val groupId: String?,
         val ciphertext: String
    )
 
