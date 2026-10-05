@@ -25,4 +25,10 @@ rootProject.name = "Luogo-FOSS"
 // same authorisation rules instead of drifting apart.
 include(":shared")
 include(":relay")
-include(":app")
+
+// Configuring :app requires the Android Gradle plugin and an installed SDK, neither of which
+// the relay container image has. Skipping the module keeps the image free of the SDK and keeps
+// the server build honest about only depending on :shared.
+if (providers.gradleProperty("relayOnly").orNull != "true") {
+    include(":app")
+}

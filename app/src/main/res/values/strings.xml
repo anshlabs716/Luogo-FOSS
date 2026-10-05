@@ -9,6 +9,12 @@
     <string name="nav_settings">Settings</string>
     <string name="tile_label_sharing">Luogo Live Share</string>
     <string name="widget_description">Live encrypted location sharing and item finding status</string>
+    <!-- Shown only before the provider supplies live status on the first update. -->
+    <string name="widget_idle">Waiting for location…</string>
+    <!-- %1$d is the horizontal accuracy in metres, %2$s the provider summary. -->
+    <string name="widget_summary_live">LIVE · ±%1$dm (%2$s)</string>
+    <string name="widget_summary_live_no_fix">Waiting for a location fix…</string>
+    <string name="widget_summary_paused">Sharing paused</string>
     <string name="notification_channel_tracking">Live Location &amp; Finding Service</string>
     <string name="notification_channel_geofence">Saved Places &amp; Arrival Alerts</string>
     <string name="notification_channel_items">Item Finding &amp; Tracker Alerts</string>

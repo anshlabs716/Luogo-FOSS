@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget colours are defined here rather than taken from the platform.
+
+  The layout previously used @android:color/system_neutral1_900, which only exists from API 31.
+  On API 24 to 30 that reference does not resolve and the widget renders with no background at
+  all, so it is defined locally instead. Values match the app's dark surface so the widget and
+  the app do not look like two different products.
+-->
+<resources>
+    <color name="widget_surface">#0B0F12</color>
+    <color name="widget_text_primary">#E6EDF3</color>
+    <color name="widget_text_secondary">#8B98A5</color>
+</resources>

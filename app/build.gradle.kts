@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.android.room)
 }
 
 android {
@@ -27,12 +28,12 @@ android {
             // arm ABIs roughly halves the download without excluding real hardware.
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
-
-        // The app ships one language. Stripping the ~80 locales that AndroidX and Compose
-        // bundle removes several hundred KB of translation strings that would never be shown.
-        // No feature is lost; only unused translations.
-        resourceConfigurations += listOf("en")
     }
+
+    // The app ships one language. Stripping the ~80 locales that AndroidX and Compose bundle
+    // removes several hundred KB of translation strings that would never be shown. No feature is
+    // lost; only unused translations.
+    androidResources.localeFilters += listOf("en")
 
     signingConfigs {
         create("debugConfig") {
@@ -122,6 +123,12 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
+    // Exports the Room schema JSON so schema changes can be diffed and migration-tested.
+    // Without this, exportSchema = true writes nothing and a v2 migration is unverifiable.
+    room {
+        schemaDirectory("$projectDir/schemas")
+    }
+
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

@@ -145,8 +145,12 @@ class AndroidHardwareLocationManager(
                 if (runCatching { status.hasEphemerisData(i) }.getOrDefault(false)) {
                     withEphemeris++
                 }
-                val hz = runCatching { status.getCarrierFrequencyHz(i) }.getOrDefault(0f)
-                if (hz > 0f) bands.add(bandLabel(hz))
+                // Per-satellite carrier frequency arrived in API 26. Below that the band is
+                // simply unknown, so dual-frequency stays false rather than being guessed.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val hz = runCatching { status.getCarrierFrequencyHz(i) }.getOrDefault(0f)
+                    if (hz > 0f) bands.add(bandLabel(hz))
+                }
             }
             lastGnssSatellitesInFix = withEphemeris
             gnssDualFrequency = bands.size >= 2
@@ -275,7 +279,11 @@ class AndroidHardwareLocationManager(
                 timestampMs = location.time,
                 horizontalAccuracyMeters = if (location.hasAccuracy()) location.accuracy else DEFAULT_ACCURACY,
                 altitudeMeters = if (location.hasAltitude()) location.altitude else null,
-                verticalAccuracyMeters = if (location.hasVerticalAccuracy()) {
+                // Vertical accuracy is only reported from API 26. Absent that, the fusion
+                // engine treats it as unknown and leans on the horizontal figure.
+                verticalAccuracyMeters = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                    location.hasVerticalAccuracy()
+                ) {
                     location.verticalAccuracyMeters
                 } else {
                     null
@@ -324,6 +332,12 @@ class AndroidHardwareLocationManager(
     private fun seedFromLastKnown() {
         val manager = locationManager ?: return
         if (!canStartTracking()) return
+        // Checked here as well as in canStartTracking() because getLastKnownLocation needs the
+        // permission at the point of the call, and a coarse grant is not sufficient for GPS.
+        val fineGranted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!fineGranted) return
         var best: Location? = null
         for (provider in PROVIDER_PRIORITY) {
             if (!manager.allProviders.contains(provider)) continue
@@ -486,9 +500,14 @@ class AndroidHardwareLocationManager(
      * support) is not observable from the app, so we report exactly this capability and
      * nothing more.
      */
+    @Suppress("DEPRECATION")
     private fun hasRealWifiRtt(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         val wifi = ContextCompat.getSystemService(context, android.net.wifi.WifiManager::class.java)
+        // Superseded by isDeviceToPeerApRttSupportedSupported in API 33, but that method is
+        // absent from the platform stubs this project compiles against, so the older accessor
+        // is what can actually be called here. It still answers the same question: can this
+        // device range against an access point?
         return runCatching { wifi?.isDeviceToApRttSupported == true }.getOrDefault(false)
     }
 

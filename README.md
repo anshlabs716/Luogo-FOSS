@@ -152,10 +152,9 @@ The security architecture separates device authentication, group encryption, and
 
 Cryptographic primitives include:
 
-- Ed25519
-- HKDF-SHA256
-- ChaCha20-Poly1305
-- AES-256-GCM
+- Ed25519 (device identity, via Bouncy Castle: Android Keystore cannot generate Ed25519 below API 33)
+- HMAC-SHA256 (keyed derivation, report authentication)
+- AES-256-GCM (group payload sealing, with the group id bound as AAD)
 - Secure random key generation
 - Android Keystore where appropriate
 
@@ -224,7 +223,7 @@ The backend is also written in Kotlin
 
 ## 🛠️ Migration Status
 
-Luogo-FOSS is undergoing a **Flutter/Dart → native Kotlin Android migration**.
+Luogo-FOSS is a native Kotlin Android application. There is no Flutter or Dart runtime.
 
 1. 🏗️ Native Kotlin Android foundation
 2. 📍 Location engine
@@ -253,11 +252,14 @@ Luogo-FOSS/
 │   ├── AndroidX
 │   └── Room
 │
-└── server/
-    └── Kotlin Backend
+├── shared/
+│   └── Relay engine, shared by the app and the server
+└── relay/
+    ├── Kotlin relay server
+    └── Dockerfile
 ~~~
 
-The original Flutter/Dart implementation is being replaced and will not be the Android runtime.
+The original Flutter/Dart implementation is not part of this application. The runtime is Kotlin only.
 
 ## 📜 License
 

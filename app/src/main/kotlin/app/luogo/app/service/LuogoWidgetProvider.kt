@@ -24,15 +24,23 @@ class LuogoWidgetProvider : AppWidgetProvider() {
         val repo = runCatching { LuogoApplication.getRepository(context) }.getOrNull()
         val sharing = repo?.userProfile?.value?.sharingEnabled ?: true
         val fix = repo?.hardwareLocationManager?.fusedLocation?.value
-        val summary = if (fix != null) {
-            "${if (sharing) "LIVE" else "PAUSED"} · ±${fix.horizontalAccuracyMeters.toInt()}m (${fix.sourceSummary})"
-        } else {
-            if (sharing) "Luogo-FOSS · Live E2EE Active" else "Luogo-FOSS · Sharing Paused"
+
+        // Paused takes priority. The previous order reported "LIVE" whenever a fix happened to
+        // exist, even with sharing switched off, because the fix branch was checked first and
+        // ignored the sharing flag.
+        val summary = when {
+            !sharing -> context.getString(R.string.widget_summary_paused)
+            fix != null -> context.getString(
+                R.string.widget_summary_live,
+                fix.horizontalAccuracyMeters.toInt(),
+                fix.sourceSummary
+            )
+            else -> context.getString(R.string.widget_summary_live_no_fix)
         }
 
         for (widgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.luogo_widget_layout)
-            views.setTextViewText(R.id.widget_title, "Luogo-FOSS")
+            views.setTextViewText(R.id.widget_title, context.getString(R.string.app_name))
             views.setTextViewText(R.id.widget_subtitle, summary)
 
             val openIntent = Intent(context, MainActivity::class.java)

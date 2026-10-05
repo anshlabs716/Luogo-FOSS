@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -374,7 +374,7 @@ private fun GroupCard(
                     onClick = { confirmLeave = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Logout, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Leave")
                 }

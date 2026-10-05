@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -395,7 +395,7 @@ private fun ItemCard(
                 AssistChip(
                     onClick = onRing,
                     label = { Text(if (item.isRinging) "Stop ring" else "Ring") },
-                    leadingIcon = { Icon(Icons.Default.VolumeUp, contentDescription = null) }
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null) }
                 )
                 AssistChip(
                     onClick = onFindNearby,
