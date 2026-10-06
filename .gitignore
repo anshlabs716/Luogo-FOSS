@@ -23,14 +23,8 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
+# Gradle build output. The Flutter and Dart entries that used to sit here were removed with
+# the Flutter implementation; nothing in this project is Flutter or Dart any more.
 /build/
 
 # Symbolication related
