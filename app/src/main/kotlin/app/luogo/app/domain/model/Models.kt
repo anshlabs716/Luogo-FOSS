@@ -31,7 +31,10 @@ enum class ActivityState(val label: String, val targetUpdateIntervalMs: Long) {
     RUNNING("Running", 1_800L),
     CYCLING("Cycling", 1_800L),
     DRIVING("Driving", 1_500L),
-    UNKNOWN("Moving", 2_000L)
+    // Labelled "Unknown" rather than "Moving". This is the fallback when the reported
+    // activity cannot be parsed, so calling it "Moving" asserted something untrue, and
+    // rendered as the contradiction "Moving · 0.0 m/s" next to a stationary peer.
+    UNKNOWN("Unknown", 2_000L)
 }
 
 @Serializable

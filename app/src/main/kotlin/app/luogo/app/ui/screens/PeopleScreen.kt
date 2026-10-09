@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,6 +29,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.luogo.app.domain.model.GroupCategory
 import app.luogo.app.domain.model.PeerLocationState
@@ -256,6 +259,18 @@ private fun SharingCard(
     }
 }
 
+/**
+ * One person, as a single compact row.
+ *
+ * This was three label/value rows plus two full-width outlined buttons, roughly 430px tall
+ * per person. With three people sharing, that pushed the entire Groups section below the fold,
+ * so the screen never showed both of the things it exists for. Rendering the screen made this
+ * obvious in a way the source did not.
+ *
+ * The row now leads with who this is and how fresh their fix is, which is what a glance needs,
+ * and keeps routing as an icon button. The full detail set is one tap away in the detail sheet
+ * rather than permanently occupying the list.
+ */
 @Composable
 private fun PeerCard(
     peer: PeerLocationState,
@@ -265,65 +280,85 @@ private fun PeerCard(
 ) {
     val nowMs = System.currentTimeMillis()
     val stale = peer.isStale(nowMs)
+    val age = formatAge(nowMs - peer.timestampMs)
+
     Card(
         onClick = onOpenOnMap,
         modifier = modifier
             .fillMaxWidth()
             .testTag("peer_card_${peer.userId}"),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                InitialsAvatar(
-                    name = peer.displayName,
-                    colorArgb = peer.colorArgb,
-                    size = 40.dp,
-                    // Green ring reads as live, grey as stale, before any text is parsed.
-                    ringColor = if (stale) {
-                        MaterialTheme.colorScheme.outline
-                    } else {
-                        Color(0xFF00C853)
-                    }
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(peer.displayName, style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        text = "±${peer.accuracyMeters.toInt()} m · ${peer.sourceSummary}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            InitialsAvatar(
+                name = peer.displayName,
+                colorArgb = peer.colorArgb,
+                size = 42.dp,
+                // Green ring reads as live, grey as stale, before any text is parsed.
+                ringColor = if (stale) {
+                    MaterialTheme.colorScheme.outline
+                } else {
+                    Color(0xFF00C853)
                 }
-                FreshnessChip(
-                    label = if (stale) "STALE" else "LIVE",
-                    tone = if (stale) FreshnessTone.STALE else FreshnessTone.LIVE
+            )
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = peer.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "$age · ±${peer.accuracyMeters.toInt()} m · ${peer.activityState.label}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                peer.batteryPercent?.let { battery ->
+                    // A flat battery is worth surfacing; a healthy one is just noise.
+                    if (battery <= 15) {
+                        Text(
+                            text = "Battery $battery%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
 
-            Spacer(Modifier.height(10.dp))
-            DetailRow("Last update", formatAge(nowMs - peer.timestampMs) + " ago")
-            DetailRow("Activity", "${peer.activityState.label} · ${"%.1f".format(peer.speedMps)} m/s")
-            peer.batteryPercent?.let { DetailRow("Battery", "$it%") }
+            FreshnessChip(
+                label = if (stale) "STALE" else "LIVE",
+                tone = if (stale) FreshnessTone.STALE else FreshnessTone.LIVE
+            )
 
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onOpenOnMap, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Groups, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Show on map")
-                }
-                OutlinedButton(onClick = onRoute, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Directions, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Route")
-                }
+            IconButton(onClick = onRoute, modifier = Modifier.testTag("route_${peer.userId}")) {
+                Icon(
+                    Icons.Default.Directions,
+                    contentDescription = "Route to ${peer.displayName}",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
 }
 
+/**
+ * One group.
+ *
+ * Inviting is the action people come here for, so it is the only filled control. Leaving is
+ * destructive and irreversible on this device, and was previously an outlined button given
+ * equal visual weight to Invite, so it is now a quiet icon button that still confirms.
+ */
 @Composable
 private fun GroupCard(
     name: String,
@@ -339,45 +374,61 @@ private fun GroupCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = MaterialTheme.shapes.large
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        text = "${category.label} · $memberCount member${if (memberCount == 1) "" else "s"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = shareMyLocation,
-                    onCheckedChange = onToggleSharing,
-                    modifier = Modifier.testTag("group_share_switch_$name")
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    // The category is omitted when it just repeats the name, which produced
+                    // "Family" over "1 member · Family".
+                    text = buildString {
+                        append("$memberCount member")
+                        if (memberCount != 1) append("s")
+                        if (category != GroupCategory.CUSTOM &&
+                            !name.equals(category.label, ignoreCase = true)
+                        ) {
+                            append(" · ${category.label}")
+                        }
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onInvite,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("invite_button_$name")
-                ) {
-                    Icon(Icons.Default.QrCode2, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Invite")
-                }
-                OutlinedButton(
-                    onClick = { confirmLeave = true },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Leave")
-                }
+            Switch(
+                checked = shareMyLocation,
+                onCheckedChange = onToggleSharing,
+                modifier = Modifier.testTag("group_share_switch_$name")
+            )
+            IconButton(onClick = { confirmLeave = true }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = "Leave $name",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onInvite,
+                modifier = Modifier.testTag("invite_button_$name")
+            ) {
+                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Invite someone")
             }
         }
     }

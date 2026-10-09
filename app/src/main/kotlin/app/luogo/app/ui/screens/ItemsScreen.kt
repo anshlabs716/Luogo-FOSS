@@ -98,11 +98,15 @@ fun ItemsScreen(
         title = "Items",
         subtitle = if (items.isEmpty()) "Nothing registered yet" else "${items.size} registered",
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAdd = true },
-                modifier = Modifier.testTag("add_item_button")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Register an item")
+            // The empty state already carries a "Register an item" button. Showing both meant
+            // the same action appeared twice on one screen, which the render made obvious.
+            if (items.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = { showAdd = true },
+                    modifier = Modifier.testTag("add_item_button")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Register an item")
+                }
             }
         }
     ) { padding ->

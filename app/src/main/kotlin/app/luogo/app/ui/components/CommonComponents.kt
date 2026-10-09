@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -315,7 +316,12 @@ fun CategoryIconTile(
     }
 }
 
-/** Label/value row used throughout the detail sheets. */
+/**
+ * Label/value row used throughout the detail sheets and settings.
+ *
+ * The label column was 116dp, which wrapped "Background tracking" onto a second line and left
+ * it sitting under the value rather than beside it. 140dp fits the longest label in the app.
+ */
 @Composable
 fun DetailRow(label: String, value: String, modifier: Modifier = Modifier) {
     Row(
@@ -327,13 +333,22 @@ fun DetailRow(label: String, value: String, modifier: Modifier = Modifier) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(116.dp)
+            modifier = Modifier.width(140.dp)
         )
         Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
-/** Inline notice, used for warnings and for "this is unavailable" explanations. */
+/**
+ * Inline notice, used for warnings and for "this is unavailable" explanations.
+ *
+ * Always full width. Screenshotting the component library showed it previously hugging its
+ * text, so three stacked notices had ragged right edges instead of reading as aligned bands.
+ *
+ * The colours are the M3 container roles, which are correct by the spec but read as very
+ * saturated blocks on a near-black background, so the container is blended toward the
+ * surface: the tone stays obvious without the notice shouting over the content around it.
+ */
 @Composable
 fun NoticeCard(
     text: String,
@@ -341,25 +356,31 @@ fun NoticeCard(
     icon: ImageVector = Icons.Default.Info,
     tone: NoticeTone = NoticeTone.INFO
 ) {
-    val container = when (tone) {
-        NoticeTone.INFO -> MaterialTheme.colorScheme.secondaryContainer
-        NoticeTone.WARNING -> MaterialTheme.colorScheme.tertiaryContainer
-        NoticeTone.ERROR -> MaterialTheme.colorScheme.errorContainer
+    val scheme = MaterialTheme.colorScheme
+    val base = when (tone) {
+        NoticeTone.INFO -> scheme.secondaryContainer
+        NoticeTone.WARNING -> scheme.tertiaryContainer
+        NoticeTone.ERROR -> scheme.errorContainer
     }
     val content = when (tone) {
-        NoticeTone.INFO -> MaterialTheme.colorScheme.onSecondaryContainer
-        NoticeTone.WARNING -> MaterialTheme.colorScheme.onTertiaryContainer
-        NoticeTone.ERROR -> MaterialTheme.colorScheme.onErrorContainer
+        NoticeTone.INFO -> scheme.onSecondaryContainer
+        NoticeTone.WARNING -> scheme.onTertiaryContainer
+        NoticeTone.ERROR -> scheme.onErrorContainer
     }
+    // Pull the tint back toward the app surface so it reads as a band, not a highlighter.
+    val container = lerp(base, scheme.surfaceContainer, 0.35f)
+
     Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = container)
+        // fillMaxWidth rather than the caller's modifier alone, so a notice is always a band.
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = container),
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Icon(icon, contentDescription = null, tint = content)
+            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
             Text(text = text, style = MaterialTheme.typography.bodyMedium, color = content)
         }

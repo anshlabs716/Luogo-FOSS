@@ -76,25 +76,30 @@ private val LuogoDarkColors = darkColorScheme(
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
     // Tonal ladder. Each step is visibly distinct so cards read as raised surfaces rather
-    // than flat noise: background is the floor and the container tints climb from there.
-    background = Color(0xFF070B0E),
-    onBackground = Color(0xFFE3E7EA),
-    surface = Color(0xFF0F1519),
-    onSurface = Color(0xFFE3E7EA),
-    surfaceDim = Color(0xFF070B0E),
-    surfaceBright = Color(0xFF343E44),
-    surfaceVariant = Color(0xFF2A343A),
-    onSurfaceVariant = Color(0xFFB6C2C7),
-    surfaceContainerLowest = Color(0xFF05080A),
-    surfaceContainerLow = Color(0xFF141B20),
-    surfaceContainer = Color(0xFF1B2429),
-    surfaceContainerHigh = Color(0xFF253037),
-    surfaceContainerHighest = Color(0xFF303C44),
+    // than flat noise.
+    //
+    // The steps were originally 4-7 lightness points apart, which rendered as almost one flat
+    // field: a screenshot of the ladder showed background, surface and surfaceContainerLow as
+    // indistinguishable. These are spaced wide enough to be told apart by eye while staying
+    // dark enough for an OLED screen at night.
+    background = Color(0xFF06090C),
+    onBackground = Color(0xFFE6EDF3),
+    surface = Color(0xFF0E1418),
+    onSurface = Color(0xFFE6EDF3),
+    surfaceDim = Color(0xFF06090C),
+    surfaceBright = Color(0xFF3A464E),
+    surfaceVariant = Color(0xFF29343B),
+    onSurfaceVariant = Color(0xFFBAC6CE),
+    surfaceContainerLowest = Color(0xFF030608),
+    surfaceContainerLow = Color(0xFF161E23),
+    surfaceContainer = Color(0xFF1E282E),
+    surfaceContainerHigh = Color(0xFF2A363D),
+    surfaceContainerHighest = Color(0xFF37454E),
     surfaceTint = Color(0xFF7FE3D4),
-    inverseSurface = Color(0xFFE3E7EA),
-    inverseOnSurface = Color(0xFF121A1E),
-    outline = Color(0xFF8B979D),
-    outlineVariant = Color(0xFF2C363C)
+    inverseSurface = Color(0xFFE6EDF3),
+    inverseOnSurface = Color(0xFF111A1F),
+    outline = Color(0xFF8B979F),
+    outlineVariant = Color(0xFF2A343B)
 )
 
 private val LuogoLightColors = lightColorScheme(
