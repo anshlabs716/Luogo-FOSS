@@ -2,8 +2,6 @@
 
 High-level structure of Luogo-FOSS.
 
-# Architecture
-
 This page describes the high-level structure of Luogo-FOSS. It is a starting
 point and is updated as the implementation evolves.
 
@@ -13,10 +11,10 @@ Luogo-FOSS
 
 ## Main components
 
-- `**Kotlin**`
-- `**Jetpack Compose**`
-- `**Room**`
-- `**Kotlin backend**`
+- **Kotlin**
+- **Jetpack Compose**
+- **Room**
+- **Kotlin backend**
 
 ## Data flow
 

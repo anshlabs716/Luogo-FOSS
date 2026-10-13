@@ -2,8 +2,6 @@
 
 Architecture decision records for Luogo-FOSS.
 
-# Architecture Decision Records
-
 This directory records significant architecture decisions for Luogo-FOSS.
 
 ## What is an ADR?

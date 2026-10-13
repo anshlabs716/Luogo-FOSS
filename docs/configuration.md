@@ -2,8 +2,6 @@
 
 How to configure Luogo-FOSS.
 
-# Configuration
-
 Reference for configuring Luogo-FOSS.
 
 ## Where configuration lives
