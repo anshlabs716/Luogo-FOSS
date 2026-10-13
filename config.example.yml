@@ -1,0 +1,10 @@
+# Example backend configuration. Copy and edit. Do not commit real secrets.
+server:
+  host: 0.0.0.0
+  port: 8080
+
+database:
+  url: "postgres://user:password@localhost:5432/luogo"
+
+logging:
+  level: info
